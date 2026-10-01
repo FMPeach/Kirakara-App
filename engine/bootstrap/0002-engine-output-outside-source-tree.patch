@@ -1,0 +1,14 @@
+diff --git a/engine/src/flutter/build/bin_to_obj.gni b/engine/src/flutter/build/bin_to_obj.gni
+index a192719a4..b870afdae 100644
+--- a/engine/src/flutter/build/bin_to_obj.gni
++++ b/engine/src/flutter/build/bin_to_obj.gni
+@@ -60,7 +60,8 @@ template("bin_to_coff") {
+   action(target_name) {
+     deps = invoker.deps
+     script = "$dart_src/runtime/tools/bin_to_coff.py"
+-    output = "$target_gen_dir/${invoker.input}.o"
++    input_file = get_path_info(invoker.input, "file")
++    output = "$target_gen_dir/$input_file.o"
+     args = [
+       "--input",
+       rebase_path(invoker.input),

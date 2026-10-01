@@ -1,0 +1,30 @@
+* text=auto
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.dart text eol=lf
+*.yaml text eol=lf
+*.yml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+LICENSE text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.cpp text eol=lf
+*.cs text eol=lf
+*.cc text eol=lf
+*.h text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.ps1 text eol=lf
+*.psm1 text eol=lf
+*.patch text eol=lf whitespace=-blank-at-eol
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+# 原始许可证保留上游空白与末尾空行，不为格式检查改写许可全文。
+third_party/licenses/* whitespace=-blank-at-eol,-blank-at-eof

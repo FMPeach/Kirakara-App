@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/BYVoid/OpenCC.git",
+  "revision": "e5d6c5f1b78e28a5797e7ad3ede3513314e544b7",
+  "license": "Apache-2.0",
+  "licensePath": "LICENSE",
+  "licenseSha256": "B534E465949558EEC2597B04F5092B5E161236A68DFBFD04D547592AC3964308",
+  "authorsSha256": "CB34E252FA994679BCBFC8355581E821CEDA44BD857875E2CFE15B7EC4EEC006",
+  "sourceArchive": {
+    "path": "opencc-rime-data-e5d6c5f1.tar",
+    "format": "git-archive-tar",
+    "paths": [
+      "LICENSE",
+      "AUTHORS",
+      "README.md",
+      "data"
+    ],
+    "size": 1259520,
+    "sha256": "9BE28778421950D6A957418860C0AE4C2A497C351503834AD602C7B4F8233717"
+  },
+  "runtimeFiles": [
+    {
+      "path": "hk2s.json",
+      "size": 677,
+      "sha256": "2E796CCC70DF15AAA6F6A52098ADE1DBB0143BA0AD7D07A8F11A2CCEEF8EE77E"
+    },
+    {
+      "path": "hk2t.json",
+      "size": 473,
+      "sha256": "C3FF1DCC28474E7A7DA6B6C398DB91BAD6E2E43600B20F8459F7E583C341DB65"
+    },
+    {
+      "path": "HKVariants.ocd2",
+      "size": 4893,
+      "sha256": "62750CB79EEF18A407030B05BD4ABE0E102BEC2254D04B2D2310792F44519321"
+    },
+    {
+      "path": "HKVariantsRev.ocd2",
+      "size": 4923,
+      "sha256": "87D4483565860DC96EA5AF26F0716864966C4600CC03D5DDE73B9487D826021A"
+    },
+    {
+      "path": "HKVariantsRevPhrases.ocd2",
+      "size": 7030,
+      "sha256": "0FD9BC1F9E9250224B0737E320A850FC630F37B7C475A1DCB1081416ADE13EFA"
+    },
+    {
+      "path": "jp2t.json",
+      "size": 565,
+      "sha256": "F2B06BD405C02548354924363BA19F01D72DE589AF9F7619728DF6CFA9458BC7"
+    },
+    {
+      "path": "JPShinjitaiCharacters.ocd2",
+      "size": 4263,
+      "sha256": "970D1FF54460ED4EF3C0E7DAB7CD176C917DED0AAEEF4299E77DE32D94995914"
+    },
+    {
+      "path": "JPShinjitaiPhrases.ocd2",
+      "size": 7462,
+      "sha256": "E3D06B628271327797FA57528A7EEF8830F4A1F153E1C5A588F89D77831F7259"
+    },
+    {
+      "path": "JPVariants.ocd2",
+      "size": 7993,
+      "sha256": "E7F9DAAA4BEE07CBC70A3E186BDB42F2F4FB300DF895A1CFD472C4FDE0D52831"
+    },
+    {
+      "path": "JPVariantsRev.ocd2",
+      "size": 7983,
+      "sha256": "9F4FCDD369741AE7421D7E6D906681E133389BE88EE146E214EE24C27AB8BAB2"
+    },
+    {
+      "path": "s2hk.json",
+      "size": 534,
+      "sha256": "B947BDE9306E0C9DC6515D4A337DB05E6CC632655658744326C209662475A4C7"
+    },
+    {
+      "path": "s2t.json",
+      "size": 428,
+      "sha256": "919C0A6FDE65555879B249588AB8C785C5E4B85704BE8863361776BD48094A25"
+    },
+    {
+      "path": "s2tw.json",
+      "size": 532,
+      "sha256": "32612B976C67F78BFFFA3223995E59A7A6956D42624EE4D8C63216C6BCD006C6"
+    },
+    {
+      "path": "s2twp.json",
+      "size": 631,
+      "sha256": "D6EF232BADF4A31C8CFAC2DB2C46383E7C57B9FB452FF3C98066199482A582E9"
+    },
+    {
+      "path": "STCharacters.ocd2",
+      "size": 45310,
+      "sha256": "4C7398B4CEEDF9B58B5EA77CDD911BC7807C50C7491111DC9B4073C68AD5A2BB"
+    },
+    {
+      "path": "STPhrases.ocd2",
+      "size": 925143,
+      "sha256": "5E8D8289BEACC7D4AB7BAA7193EBB589F3D5A956449ED9C81CCFF431AE503F6E"
+    },
+    {
+      "path": "t2hk.json",
+      "size": 320,
+      "sha256": "BB27109C2ED7B4034150D00238EA07EFE9D2421AC77F1FADD938B19F8C1C6A5B"
+    },
+    {
+      "path": "t2jp.json",
+      "size": 334,
+      "sha256": "535A27C482BFFBD900009588BA9B0D7687D66843ED4075B76A89DFE542234285"
+    },
+    {
+      "path": "t2s.json",
+      "size": 428,
+      "sha256": "EBE32A6766BFBAEA1869F82368F54A8FC6C977A235E8A896B618714872B5DF09"
+    },
+    {
+      "path": "t2tw.json",
+      "size": 318,
+      "sha256": "D3E1B549CBA6423F88528DFDE1A9597FD53CB3496FE38C12092FD2A4D06BD387"
+    },
+    {
+      "path": "TSCharacters.ocd2",
+      "size": 46126,
+      "sha256": "85291E0173E972BBCA58C848FB90B3BB41C79674CB61A75645E01BD884AD5927"
+    },
+    {
+      "path": "TSPhrases.ocd2",
+      "size": 9776,
+      "sha256": "EDAFC46F5C3ECA61A754C78E47117E7C73995CACD6C99AADCB8A219D7AE3E53D"
+    },
+    {
+      "path": "tw2s.json",
+      "size": 675,
+      "sha256": "F6760923BFD681627A3C26B01F64C70DE922AD57CF77D8494A46A9A287DFDEF2"
+    },
+    {
+      "path": "tw2sp.json",
+      "size": 764,
+      "sha256": "7ED48C20581A6414946498E069B6D08D02E550E377F19017EF6793F7550BDEFD"
+    },
+    {
+      "path": "tw2t.json",
+      "size": 471,
+      "sha256": "2C3314A996C875BE2AF3F4967D44C03EE4C4E9C6FC10DFB0BB8BA9A4C40E5687"
+    },
+    {
+      "path": "TWPhrases.ocd2",
+      "size": 15610,
+      "sha256": "14CE3A5BEDED4E387F571FF6AA0473D631C02B6E9AF019960C87E1CD278640C5"
+    },
+    {
+      "path": "TWPhrasesRev.ocd2",
+      "size": 15597,
+      "sha256": "5F8526ECC80A352A876FB8A6750111BD78465355B606B502FB018A57BA7E102C"
+    },
+    {
+      "path": "TWVariants.ocd2",
+      "size": 4595,
+      "sha256": "390F07A1867AD56AA60A7AF23B6E4B3ACC96EA48D893C06EDE3DFFB1C576C2BC"
+    },
+    {
+      "path": "TWVariantsRev.ocd2",
+      "size": 4627,
+      "sha256": "663471398C79400DB4485DF5E92B709AC174C5E393F4FE0E3D5B02034024D609"
+    },
+    {
+      "path": "TWVariantsRevPhrases.ocd2",
+      "size": 5333,
+      "sha256": "EA51DDE3E45FDAF9349473AE19B3567FE5DA59B01AEFF2F4E9EAE50C9BAF2C24"
+    }
+  ]
+}

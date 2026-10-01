@@ -1,0 +1,603 @@
+diff --git a/engine/src/flutter/shell/platform/windows/platform_handler.cc b/engine/src/flutter/shell/platform/windows/platform_handler.cc
+index aa05bf3750b..bc58f047573 100644
+--- a/engine/src/flutter/shell/platform/windows/platform_handler.cc
++++ b/engine/src/flutter/shell/platform/windows/platform_handler.cc
+@@ -6,8 +6,10 @@
+ 
+ #include <windows.h>
+ 
++#include <chrono>
+ #include <cstring>
+ #include <optional>
++#include <utility>
+ 
+ #include "flutter/fml/logging.h"
+ #include "flutter/fml/macros.h"
+@@ -39,10 +41,18 @@ static constexpr char kTextPlainFormat[] = "text/plain";
+ static constexpr char kTextKey[] = "text";
+ static constexpr char kUnknownClipboardFormatMessage[] =
+     "Unknown clipboard format";
++static constexpr char kClipboardTextTooLargeMessage[] =
++    "Clipboard text is too large";
+ 
+ static constexpr char kValueKey[] = "value";
+ static constexpr int kAccessDeniedErrorCode = 5;
+ static constexpr int kErrorSuccess = 0;
++static constexpr int kBufferOverflowErrorCode = ERROR_BUFFER_OVERFLOW;
++static constexpr UINT_PTR kClipboardRetryTimerId = 0x4B43;
++static constexpr UINT kClipboardRetryIntervalMilliseconds = 16;
++static constexpr auto kClipboardRetryDeadline = std::chrono::milliseconds(250);
++static constexpr uint32_t kMaxClipboardOpenAttempts = 16;
++static constexpr size_t kMaxClipboardTextCodeUnits = 1024 * 1024;
+ 
+ static constexpr char kExitRequestError[] = "ExitApplication error";
+ static constexpr char kInvalidExitRequestMessage[] =
+@@ -266,6 +276,7 @@ PlatformHandler::PlatformHandler(
+ }
+ 
+ PlatformHandler::~PlatformHandler() {
++  CancelClipboardRetries();
+   if (window_handle_) {
+     DestroyWindow(window_handle_);
+     window_handle_ = nullptr;
+@@ -276,25 +287,103 @@ PlatformHandler::~PlatformHandler() {
+ void PlatformHandler::GetPlainText(
+     std::unique_ptr<MethodResult<rapidjson::Document>> result,
+     std::string_view key) {
++  RunClipboardOperation(
++      std::make_unique<PendingClipboardOperation>(PendingClipboardOperation{
++          ClipboardOperationType::kGetPlainText, std::move(result),
++          std::string(key), std::chrono::steady_clock::now(), 0}));
++}
++
++void PlatformHandler::GetHasStrings(
++    std::unique_ptr<MethodResult<rapidjson::Document>> result) {
++  RunClipboardOperation(std::make_unique<PendingClipboardOperation>(
++      PendingClipboardOperation{ClipboardOperationType::kGetHasStrings,
++                                std::move(result),
++                                {},
++                                std::chrono::steady_clock::now(),
++                                0}));
++}
++
++void PlatformHandler::SetPlainText(
++    const std::string& text,
++    std::unique_ptr<MethodResult<rapidjson::Document>> result) {
++  RunClipboardOperation(
++      std::make_unique<PendingClipboardOperation>(PendingClipboardOperation{
++          ClipboardOperationType::kSetPlainText, std::move(result), text,
++          std::chrono::steady_clock::now(), 0}));
++}
++
++void PlatformHandler::RunClipboardOperation(
++    std::unique_ptr<PendingClipboardOperation> operation) {
++  ++operation->attempts;
+   std::unique_ptr<ScopedClipboardInterface> clipboard =
+       scoped_clipboard_provider_();
+ 
+   int open_result = clipboard->Open(window_handle_);
+   if (open_result != kErrorSuccess) {
+-    rapidjson::Document error_code;
+-    error_code.SetInt(open_result);
+-    result->Error(kClipboardError, "Unable to open clipboard", error_code);
++    const auto elapsed =
++        std::chrono::steady_clock::now() - operation->started_at;
++    if (open_result == kAccessDeniedErrorCode &&
++        operation->attempts < kMaxClipboardOpenAttempts &&
++        elapsed < kClipboardRetryDeadline &&
++        ScheduleClipboardRetry(operation)) {
++      return;
++    }
++    CompleteClipboardOpenFailure(std::move(operation), open_result);
++    return;
++  }
++
++  if (operation->attempts > 1) {
++    const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
++        std::chrono::steady_clock::now() - operation->started_at);
++    FML_DLOG(INFO) << "Clipboard open retry succeeded after "
++                   << operation->attempts << " attempts in " << elapsed.count()
++                   << " ms.";
++  }
++
++  if (operation->type == ClipboardOperationType::kGetHasStrings) {
++    rapidjson::Document document;
++    document.SetObject();
++    rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
++    document.AddMember(rapidjson::Value(kValueKey, allocator),
++                       rapidjson::Value(clipboard->HasString()), allocator);
++    operation->result->Success(document);
+     return;
+   }
++
++  if (operation->type == ClipboardOperationType::kSetPlainText) {
++    int set_result =
++        clipboard->SetString(fml::Utf8ToWideString(operation->argument));
++    if (set_result != kErrorSuccess) {
++      rapidjson::Document error_code;
++      error_code.SetInt(set_result);
++      operation->result->Error(kClipboardError, "Unable to set clipboard data",
++                               error_code);
++      return;
++    }
++    operation->result->Success();
++    return;
++  }
++
+   if (!clipboard->HasString()) {
+-    result->Success(rapidjson::Document());
++    operation->result->Success(rapidjson::Document());
+     return;
+   }
+   std::variant<std::wstring, int> get_string_result = clipboard->GetString();
+   if (std::holds_alternative<int>(get_string_result)) {
+     rapidjson::Document error_code;
+     error_code.SetInt(std::get<int>(get_string_result));
+-    result->Error(kClipboardError, "Unable to get clipboard data", error_code);
++    operation->result->Error(kClipboardError, "Unable to get clipboard data",
++                             error_code);
++    return;
++  }
++
++  const std::wstring& clipboard_text =
++      std::get<std::wstring>(get_string_result);
++  if (clipboard_text.size() > kMaxClipboardTextCodeUnits) {
++    rapidjson::Document error_code;
++    error_code.SetInt(kBufferOverflowErrorCode);
++    operation->result->Error(kClipboardError, kClipboardTextTooLargeMessage,
++                             error_code);
+     return;
+   }
+ 
+@@ -302,65 +391,83 @@ void PlatformHandler::GetPlainText(
+   document.SetObject();
+   rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+   document.AddMember(
+-      rapidjson::Value(key.data(), allocator),
+-      rapidjson::Value(
+-          fml::WideStringToUtf8(std::get<std::wstring>(get_string_result)),
+-          allocator),
++      rapidjson::Value(operation->argument.c_str(), allocator),
++      rapidjson::Value(fml::WideStringToUtf8(clipboard_text), allocator),
+       allocator);
+-  result->Success(document);
++  operation->result->Success(document);
+ }
+ 
+-void PlatformHandler::GetHasStrings(
+-    std::unique_ptr<MethodResult<rapidjson::Document>> result) {
+-  std::unique_ptr<ScopedClipboardInterface> clipboard =
+-      scoped_clipboard_provider_();
+-
+-  bool hasStrings;
+-  int open_result = clipboard->Open(window_handle_);
+-  if (open_result != kErrorSuccess) {
+-    // Swallow errors of type ERROR_ACCESS_DENIED. These happen when the app is
+-    // not in the foreground and GetHasStrings is irrelevant.
+-    // See https://github.com/flutter/flutter/issues/95817.
+-    if (open_result != kAccessDeniedErrorCode) {
+-      rapidjson::Document error_code;
+-      error_code.SetInt(open_result);
+-      result->Error(kClipboardError, "Unable to open clipboard", error_code);
+-      return;
++bool PlatformHandler::ScheduleClipboardRetry(
++    std::unique_ptr<PendingClipboardOperation>& operation) {
++  if (!clipboard_retry_timer_armed_) {
++    if (!window_handle_ ||
++        ::SetTimer(window_handle_, kClipboardRetryTimerId,
++                   kClipboardRetryIntervalMilliseconds, nullptr) == 0) {
++      FML_DLOG(INFO) << "Unable to schedule clipboard retry: "
++                     << static_cast<int>(::GetLastError());
++      return false;
+     }
+-    hasStrings = false;
+-  } else {
+-    hasStrings = clipboard->HasString();
++    clipboard_retry_timer_armed_ = true;
+   }
+-
+-  rapidjson::Document document;
+-  document.SetObject();
+-  rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
+-  document.AddMember(rapidjson::Value(kValueKey, allocator),
+-                     rapidjson::Value(hasStrings), allocator);
+-  result->Success(document);
++  pending_clipboard_operations_.push_back(std::move(operation));
++  return true;
+ }
+ 
+-void PlatformHandler::SetPlainText(
+-    const std::string& text,
+-    std::unique_ptr<MethodResult<rapidjson::Document>> result) {
+-  std::unique_ptr<ScopedClipboardInterface> clipboard =
+-      scoped_clipboard_provider_();
++void PlatformHandler::CompleteClipboardOpenFailure(
++    std::unique_ptr<PendingClipboardOperation> operation,
++    int error_code_value) {
++  const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
++      std::chrono::steady_clock::now() - operation->started_at);
++  if (operation->attempts > 1) {
++    FML_DLOG(INFO) << "Clipboard open retry stopped with error "
++                   << error_code_value << " after " << operation->attempts
++                   << " attempts in " << elapsed.count() << " ms.";
++  }
+ 
+-  int open_result = clipboard->Open(window_handle_);
+-  if (open_result != kErrorSuccess) {
+-    rapidjson::Document error_code;
+-    error_code.SetInt(open_result);
+-    result->Error(kClipboardError, "Unable to open clipboard", error_code);
++  // Preserve the upstream non-foreground behavior after the bounded retry.
++  if (operation->type == ClipboardOperationType::kGetHasStrings &&
++      error_code_value == kAccessDeniedErrorCode) {
++    rapidjson::Document document;
++    document.SetObject();
++    rapidjson::Document::AllocatorType& allocator = document.GetAllocator();
++    document.AddMember(rapidjson::Value(kValueKey, allocator),
++                       rapidjson::Value(false), allocator);
++    operation->result->Success(document);
+     return;
+   }
+-  int set_result = clipboard->SetString(fml::Utf8ToWideString(text));
+-  if (set_result != kErrorSuccess) {
+-    rapidjson::Document error_code;
+-    error_code.SetInt(set_result);
+-    result->Error(kClipboardError, "Unable to set clipboard data", error_code);
+-    return;
++
++  rapidjson::Document error_code;
++  error_code.SetInt(error_code_value);
++  operation->result->Error(kClipboardError, "Unable to open clipboard",
++                           error_code);
++}
++
++void PlatformHandler::ProcessClipboardRetries() {
++  if (clipboard_retry_timer_armed_ && window_handle_) {
++    ::KillTimer(window_handle_, kClipboardRetryTimerId);
+   }
+-  result->Success();
++  clipboard_retry_timer_armed_ = false;
++
++  auto operations = std::move(pending_clipboard_operations_);
++  pending_clipboard_operations_.clear();
++  for (auto& operation : operations) {
++    RunClipboardOperation(std::move(operation));
++  }
++}
++
++void PlatformHandler::CancelClipboardRetries() {
++  if (clipboard_retry_timer_armed_ && window_handle_) {
++    ::KillTimer(window_handle_, kClipboardRetryTimerId);
++  }
++  clipboard_retry_timer_armed_ = false;
++
++  rapidjson::Document error_code;
++  error_code.SetInt(ERROR_OPERATION_ABORTED);
++  for (auto& operation : pending_clipboard_operations_) {
++    operation->result->Error(kClipboardError, "Clipboard operation canceled",
++                             error_code);
++  }
++  pending_clipboard_operations_.clear();
+ }
+ 
+ void PlatformHandler::SystemSoundPlay(
+@@ -538,6 +645,14 @@ LRESULT PlatformHandler::WndProc(HWND const window,
+                                  UINT const message,
+                                  WPARAM const wparam,
+                                  LPARAM const lparam) noexcept {
++  if (message == WM_TIMER && wparam == kClipboardRetryTimerId) {
++    auto* handler = reinterpret_cast<PlatformHandler*>(
++        ::GetWindowLongPtr(window, GWLP_USERDATA));
++    if (handler) {
++      handler->ProcessClipboardRetries();
++      return 0;
++    }
++  }
+   return DefWindowProc(window, message, wparam, lparam);
+ }
+ 
+diff --git a/engine/src/flutter/shell/platform/windows/platform_handler.h b/engine/src/flutter/shell/platform/windows/platform_handler.h
+index cab985cb61c..d648825a515 100644
+--- a/engine/src/flutter/shell/platform/windows/platform_handler.h
++++ b/engine/src/flutter/shell/platform/windows/platform_handler.h
+@@ -7,10 +7,14 @@
+ 
+ #include <Windows.h>
+ 
++#include <chrono>
++#include <cstdint>
+ #include <functional>
+ #include <memory>
+ #include <optional>
++#include <string>
+ #include <variant>
++#include <vector>
+ 
+ #include "flutter/fml/macros.h"
+ #include "flutter/shell/platform/common/client_wrapper/include/flutter/binary_messenger.h"
+@@ -72,6 +76,11 @@ class PlatformHandler {
+       const std::string& text,
+       std::unique_ptr<MethodResult<rapidjson::Document>> result);
+ 
++  // Runs clipboard operations whose first OpenClipboard attempt was denied.
++  // Production calls this from a bounded one-shot window timer. It is
++  // protected so unit tests can advance retries without sleeping.
++  void ProcessClipboardRetries();
++
+   virtual void SystemSoundPlay(
+       const std::string& sound_type,
+       std::unique_ptr<MethodResult<rapidjson::Document>> result);
+@@ -108,8 +117,31 @@ class PlatformHandler {
+   static constexpr char kSoundTypeTick[] = "SystemSoundType.tick";
+ 
+  private:
++  enum class ClipboardOperationType {
++    kGetPlainText,
++    kGetHasStrings,
++    kSetPlainText,
++  };
++
++  struct PendingClipboardOperation {
++    ClipboardOperationType type;
++    std::unique_ptr<MethodResult<rapidjson::Document>> result;
++    std::string argument;
++    std::chrono::steady_clock::time_point started_at;
++    uint32_t attempts = 0;
++  };
++
+   WNDCLASS RegisterWindowClass();
+ 
++  void RunClipboardOperation(
++      std::unique_ptr<PendingClipboardOperation> operation);
++  bool ScheduleClipboardRetry(
++      std::unique_ptr<PendingClipboardOperation>& operation);
++  void CompleteClipboardOpenFailure(
++      std::unique_ptr<PendingClipboardOperation> operation,
++      int error_code);
++  void CancelClipboardRetries();
++
+   // Called when a method is called on |channel_|;
+   void HandleMethodCall(
+       const MethodCall<rapidjson::Document>& method_call,
+@@ -134,6 +166,10 @@ class PlatformHandler {
+   std::function<std::unique_ptr<ScopedClipboardInterface>()>
+       scoped_clipboard_provider_;
+ 
++  std::vector<std::unique_ptr<PendingClipboardOperation>>
++      pending_clipboard_operations_;
++  bool clipboard_retry_timer_armed_ = false;
++
+   FML_DISALLOW_COPY_AND_ASSIGN(PlatformHandler);
+ };
+ 
+diff --git a/engine/src/flutter/shell/platform/windows/platform_handler_unittests.cc b/engine/src/flutter/shell/platform/windows/platform_handler_unittests.cc
+index 878245556a2..d38badebca2 100644
+--- a/engine/src/flutter/shell/platform/windows/platform_handler_unittests.cc
++++ b/engine/src/flutter/shell/platform/windows/platform_handler_unittests.cc
+@@ -103,6 +103,13 @@ class MockPlatformHandler : public PlatformHandler {
+   FML_DISALLOW_COPY_AND_ASSIGN(MockPlatformHandler);
+ };
+ 
++class TestablePlatformHandler : public PlatformHandler {
++ public:
++  using PlatformHandler::PlatformHandler;
++
++  void ProcessClipboardRetriesForTesting() { ProcessClipboardRetries(); }
++};
++
+ // A test version of the private ScopedClipboard.
+ class MockScopedClipboard : public ScopedClipboardInterface {
+  public:
+@@ -133,6 +140,16 @@ std::string SimulatePlatformMessage(TestBinaryMessenger* messenger,
+   return result;
+ }
+ 
++void SimulatePlatformMessageAsync(TestBinaryMessenger* messenger,
++                                  std::string message,
++                                  std::string* result) {
++  EXPECT_TRUE(messenger->SimulateEngineMessage(
++      kChannelName, reinterpret_cast<const uint8_t*>(message.c_str()),
++      message.size(), [result](const uint8_t* reply, size_t reply_size) {
++        *result = std::string(reinterpret_cast<const char*>(reply), reply_size);
++      }));
++}
++
+ }  // namespace
+ 
+ class PlatformHandlerTest : public WindowsTest {
+@@ -213,6 +230,79 @@ TEST_F(PlatformHandlerTest, GetClipboardDataReportsOpenFailure) {
+   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to open clipboard\",1]");
+ }
+ 
++TEST_F(PlatformHandlerTest, GetClipboardDataRetriesTransientContention) {
++  UseHeadlessEngine();
++
++  TestBinaryMessenger messenger;
++  int attempts = 0;
++  TestablePlatformHandler platform_handler(&messenger, engine(), [&attempts]() {
++    auto clipboard = std::make_unique<MockScopedClipboard>();
++    const int attempt = ++attempts;
++    EXPECT_CALL(*clipboard.get(), Open)
++        .Times(1)
++        .WillOnce(Return(attempt < 3 ? kAccessDeniedErrorCode : kErrorSuccess));
++    if (attempt == 3) {
++      EXPECT_CALL(*clipboard.get(), HasString).Times(1).WillOnce(Return(true));
++      EXPECT_CALL(*clipboard.get(), GetString)
++          .Times(1)
++          .WillOnce(Return(std::wstring(L"Hello retry")));
++    }
++    return clipboard;
++  });
++
++  std::string result;
++  SimulatePlatformMessageAsync(&messenger, kClipboardGetDataMessage, &result);
++  EXPECT_TRUE(result.empty());
++  platform_handler.ProcessClipboardRetriesForTesting();
++  EXPECT_TRUE(result.empty());
++  platform_handler.ProcessClipboardRetriesForTesting();
++
++  EXPECT_EQ(attempts, 3);
++  EXPECT_EQ(result, "[{\"text\":\"Hello retry\"}]");
++}
++
++TEST_F(PlatformHandlerTest, GetClipboardDataRejectsOversizedText) {
++  UseHeadlessEngine();
++
++  TestBinaryMessenger messenger;
++  PlatformHandler platform_handler(&messenger, engine(), []() {
++    auto clipboard = std::make_unique<MockScopedClipboard>();
++    EXPECT_CALL(*clipboard.get(), Open)
++        .Times(1)
++        .WillOnce(Return(kErrorSuccess));
++    EXPECT_CALL(*clipboard.get(), HasString).Times(1).WillOnce(Return(true));
++    EXPECT_CALL(*clipboard.get(), GetString)
++        .Times(1)
++        .WillOnce(Return(std::wstring(1024 * 1024 + 1, L'x')));
++    return clipboard;
++  });
++
++  std::string result =
++      SimulatePlatformMessage(&messenger, kClipboardGetDataMessage);
++
++  EXPECT_EQ(result,
++            "[\"Clipboard error\",\"Clipboard text is too large\",111]");
++}
++
++TEST_F(PlatformHandlerTest, GetClipboardDataReturnsNullWithoutText) {
++  UseHeadlessEngine();
++
++  TestBinaryMessenger messenger;
++  PlatformHandler platform_handler(&messenger, engine(), []() {
++    auto clipboard = std::make_unique<MockScopedClipboard>();
++    EXPECT_CALL(*clipboard.get(), Open)
++        .Times(1)
++        .WillOnce(Return(kErrorSuccess));
++    EXPECT_CALL(*clipboard.get(), HasString).Times(1).WillOnce(Return(false));
++    return clipboard;
++  });
++
++  std::string result =
++      SimulatePlatformMessage(&messenger, kClipboardGetDataMessage);
++
++  EXPECT_EQ(result, "[null]");
++}
++
+ TEST_F(PlatformHandlerTest, GetClipboardDataReportsGetDataFailure) {
+   UseHeadlessEngine();
+ 
+@@ -292,23 +382,32 @@ TEST_F(PlatformHandlerTest, ClipboardHasStringsRejectsUnknownContentType) {
+ }
+ 
+ // Regression test for https://github.com/flutter/flutter/issues/95817.
+-TEST_F(PlatformHandlerTest, ClipboardHasStringsIgnoresPermissionErrors) {
++TEST_F(PlatformHandlerTest,
++       ClipboardHasStringsRetriesThenIgnoresPermissionErrors) {
+   UseHeadlessEngine();
+ 
+   TestBinaryMessenger messenger;
+-  PlatformHandler platform_handler(&messenger, engine(), []() {
++  int attempts = 0;
++  TestablePlatformHandler platform_handler(&messenger, engine(), [&attempts]() {
+     auto clipboard = std::make_unique<MockScopedClipboard>();
+ 
+-    EXPECT_CALL(*clipboard.get(), Open)
+-        .Times(1)
+-        .WillOnce(Return(kAccessDeniedErrorCode));
++    EXPECT_CALL(*clipboard.get(), Open).Times(1).WillOnce([&attempts]() {
++      ++attempts;
++      return kAccessDeniedErrorCode;
++    });
+ 
+     return clipboard;
+   });
+ 
+-  std::string result =
+-      SimulatePlatformMessage(&messenger, kClipboardHasStringsMessage);
++  std::string result;
++  SimulatePlatformMessageAsync(&messenger, kClipboardHasStringsMessage,
++                               &result);
++  EXPECT_TRUE(result.empty());
++  for (int i = 1; i < 16; ++i) {
++    platform_handler.ProcessClipboardRetriesForTesting();
++  }
+ 
++  EXPECT_EQ(attempts, 16);
+   EXPECT_EQ(result, "[{\"value\":false}]");
+ }
+ 
+@@ -403,6 +502,63 @@ TEST_F(PlatformHandlerTest, ClipboardSetDataReportsOpenFailure) {
+   EXPECT_EQ(result, "[\"Clipboard error\",\"Unable to open clipboard\",1]");
+ }
+ 
++TEST_F(PlatformHandlerTest, ClipboardSetDataRetriesTransientContention) {
++  UseHeadlessEngine();
++
++  TestBinaryMessenger messenger;
++  int attempts = 0;
++  TestablePlatformHandler platform_handler(&messenger, engine(), [&attempts]() {
++    auto clipboard = std::make_unique<MockScopedClipboard>();
++    const int attempt = ++attempts;
++    EXPECT_CALL(*clipboard.get(), Open)
++        .Times(1)
++        .WillOnce(
++            Return(attempt == 1 ? kAccessDeniedErrorCode : kErrorSuccess));
++    if (attempt == 2) {
++      EXPECT_CALL(*clipboard.get(), SetString)
++          .Times(1)
++          .WillOnce([](std::wstring string) {
++            EXPECT_EQ(string, L"hello");
++            return kErrorSuccess;
++          });
++    }
++    return clipboard;
++  });
++
++  std::string result;
++  SimulatePlatformMessageAsync(&messenger, kClipboardSetDataMessage, &result);
++  EXPECT_TRUE(result.empty());
++  platform_handler.ProcessClipboardRetriesForTesting();
++
++  EXPECT_EQ(attempts, 2);
++  EXPECT_EQ(result, "[null]");
++}
++
++TEST_F(PlatformHandlerTest, PendingClipboardRetryIsCanceledOnDestruction) {
++  UseHeadlessEngine();
++
++  TestBinaryMessenger messenger;
++  int attempts = 0;
++  std::string result;
++  {
++    TestablePlatformHandler platform_handler(
++        &messenger, engine(), [&attempts]() {
++          auto clipboard = std::make_unique<MockScopedClipboard>();
++          EXPECT_CALL(*clipboard.get(), Open).Times(1).WillOnce([&attempts]() {
++            ++attempts;
++            return kAccessDeniedErrorCode;
++          });
++          return clipboard;
++        });
++    SimulatePlatformMessageAsync(&messenger, kClipboardGetDataMessage, &result);
++    EXPECT_TRUE(result.empty());
++  }
++
++  EXPECT_EQ(attempts, 1);
++  EXPECT_EQ(result,
++            "[\"Clipboard error\",\"Clipboard operation canceled\",995]");
++}
++
+ TEST_F(PlatformHandlerTest, ClipboardSetDataReportsSetDataFailure) {
+   UseHeadlessEngine();
+ 
+diff --git a/engine/src/flutter/shell/platform/windows/kirakara_flutter_compositor_api.h b/engine/src/flutter/shell/platform/windows/kirakara_flutter_compositor_api.h
+--- a/engine/src/flutter/shell/platform/windows/kirakara_flutter_compositor_api.h
++++ b/engine/src/flutter/shell/platform/windows/kirakara_flutter_compositor_api.h
+@@ -14,7 +14,7 @@
+ #define KIRAKARA_FLUTTER_COMPOSITOR_EXPORT_NAME \
+   "FlutterDesktopKirakaraCompositorGetApi"
+ #define KIRAKARA_FLUTTER_COMPOSITOR_ABI_VERSION 2u
+-#define KIRAKARA_FLUTTER_COMPOSITOR_PATCHSET_VERSION 4u
++#define KIRAKARA_FLUTTER_COMPOSITOR_PATCHSET_VERSION 5u
+ #define KIRAKARA_FLUTTER_COMPOSITOR_PATCHSET_REVISION \
+   "windows-dcomp-stage-visual"
+ #define KIRAKARA_FLUTTER_COMPOSITOR_ENGINE_REVISION \

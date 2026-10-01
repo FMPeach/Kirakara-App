@@ -1,0 +1,82 @@
+{
+  "schemaVersion": 1,
+  "noticeFormatVersion": 1,
+  "target": "windows-x64",
+  "librimeRevision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6",
+  "marisaProvider": "repository-pinned",
+  "formalReleaseAllowed": false,
+  "scope": "固定源码构建的 rime.dll 的组件声明；不代替完整原生包、工具链或应用审计",
+  "components": [
+    { "id": "librime", "license": "BSD-3-Clause", "role": "运行库" },
+    { "id": "leveldb", "license": "BSD-3-Clause", "role": "静态依赖" },
+    { "id": "yaml-cpp", "license": "MIT", "role": "静态依赖" },
+    { "id": "marisa-trie", "license": "BSD-2-Clause", "role": "静态依赖；选择上游双许可中的 BSD，保留完整 COPYING.md" },
+    { "id": "opencc", "license": "Apache-2.0", "role": "静态依赖；数据包另行附许可" },
+    { "id": "boost", "license": "BSL-1.0", "role": "固定 1.88.0 官方头文件" },
+    { "id": "librime-darts", "license": "BSD-3-Clause", "role": "librime 内置头文件，与 OpenCC 副本分别记录" },
+    { "id": "utf8cpp", "license": "BSL-1.0", "role": "librime 内置 UTF-8 头文件；保留 Nemanja Trifunovic 原始版权头" },
+    { "id": "x11-keysyms", "license": "The Open Group / Digital 原始宽松许可", "role": "只使用键码头文件，不链接 X11 运行库" },
+    { "id": "opencc-darts", "license": "BSD-3-Clause", "role": "0.32g 头文件及两项上游修改；保留 Susumu Yata 和 Carbo Kuo 声明" },
+    { "id": "rapidjson", "license": "MIT AND BSD-3-Clause", "role": "OpenCC 的 1.1.0 头文件与 msinttypes；原始完整许可中另外列出的 JSON_checker 不使用" }
+  ],
+  "sourceNotices": [
+    { "component": "librime", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "LICENSE", "outputPath": "librime/LICENSE", "size": 1513, "sha256": "F67D27A6D2D586FCFED4B4C886A83747095396A39B6641E18E855086BE2EC400" },
+    { "component": "leveldb", "sourceRoot": ".kfe/source/librime/deps/leveldb", "revision": "99b3c03b3284f5886f9ef9a4ef703d57373e61be", "path": "LICENSE", "outputPath": "leveldb/LICENSE", "size": 1484, "sha256": "CCC19F1DA0798ED666609B65A5B44DD8B3ABE6FC08B9C0592EB76E82E174DB19" },
+    { "component": "yaml-cpp", "sourceRoot": ".kfe/source/librime/deps/yaml-cpp", "revision": "f7320141120f720aecc4c32be25586e7da9eb978", "path": "LICENSE", "outputPath": "yaml-cpp/LICENSE", "size": 1061, "sha256": "AA6FCC27BE034E41E21DD832F9175BFE694A48491D9E14FF0FA278E19AD14F1B" },
+    { "component": "marisa-trie", "sourceRoot": ".kfe/source/librime/deps/marisa-trie", "revision": "0d4e8ab58eec355facf8f65ff11ef811b330e373", "path": "COPYING.md", "outputPath": "marisa-trie/COPYING.md", "size": 2284, "sha256": "C0E214362B4DCF118371B02C87321F64A4D8317112D732B6D768167A635F383A" },
+    { "component": "opencc", "sourceRoot": ".kfe/source/librime/deps/opencc", "revision": "e5d6c5f1b78e28a5797e7ad3ede3513314e544b7", "path": "LICENSE", "outputPath": "opencc/LICENSE", "size": 9165, "sha256": "B534E465949558EEC2597B04F5092B5E161236A68DFBFD04D547592AC3964308" },
+    { "component": "opencc", "sourceRoot": ".kfe/source/librime/deps/opencc", "revision": "e5d6c5f1b78e28a5797e7ad3ede3513314e544b7", "path": "AUTHORS", "outputPath": "opencc/AUTHORS", "size": 277, "sha256": "CB34E252FA994679BCBFC8355581E821CEDA44BD857875E2CFE15B7EC4EEC006" },
+    { "component": "librime-darts", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/COPYING.darts-clone", "outputPath": "librime-darts/COPYING.darts-clone", "size": 1481, "sha256": "11BF6CA180D01E60656CD3CBE65CFF95B738AFE4CA5A8A66B9DD1EC594A41D2F" },
+    { "component": "utf8cpp", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/utf8.h", "outputPath": "utf8cpp/utf8.h", "size": 1521, "sha256": "90643C1044A58020AF389DC8EB73099FC8327A12D0731A1101ACB277E03E6A3B" },
+    { "component": "utf8cpp", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/utf8/checked.h", "outputPath": "utf8cpp/checked.h", "size": 11564, "sha256": "FD875C238A032517BDB391A837C9D7D62CB872C59E34F6C2900A24B3903B9D52" },
+    { "component": "utf8cpp", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/utf8/core.h", "outputPath": "utf8cpp/core.h", "size": 13381, "sha256": "8A7CC39F5E1EB8B96F76C76A23BEE1E0A8D8B8B5E246CA3674ADB2138AD260C8" },
+    { "component": "utf8cpp", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/utf8/unchecked.h", "outputPath": "utf8cpp/unchecked.h", "size": 10017, "sha256": "906B324E23B63CBCB078352C0CCD3B54BD290D6717898F9C7CFB19D9235934D3" },
+    { "component": "utf8cpp", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/utf8/cpp17.h", "outputPath": "utf8cpp/cpp17.h", "size": 3322, "sha256": "E65F59CB4D5F155D632774925F29103F8B3B6515A1E19EBE0BE604FEA9015C57" },
+    { "component": "x11-keysyms", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/X11/keysym.h", "outputPath": "x11-keysyms/keysym.h", "size": 2755, "sha256": "8B20FBCDFA52A6CE5BF8C0C1746E2E47FCA02E2534561DDE0E085893DB2A57CA" },
+    { "component": "x11-keysyms", "sourceRoot": ".kfe/source/librime", "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6", "path": "include/X11/keysymdef.h", "outputPath": "x11-keysyms/keysymdef.h", "size": 168221, "sha256": "FF31183DE7751C1079B1179FBBCB096F155A3B82C0429DCC8E329BE43FB93B72" }
+  ],
+  "fileNotices": [
+    { "component": "boost", "sourcePath": ".kfe/source/boost/LICENSE_1_0.txt", "outputPath": "boost/LICENSE_1_0.txt", "size": 1338, "sha256": "C9BFF75738922193E67FA726FA225535870D2AA1059F91452C411736284AD566" }
+  ],
+  "httpNotices": [
+    { "component": "rapidjson", "url": "https://raw.githubusercontent.com/Tencent/rapidjson/f54b0e47a08782a6131cc3d60f94d038fa6e0a51/license.txt", "outputPath": "rapidjson/license.txt", "size": 5152, "sha256": "A140E5D46FE734A1C78F1A3C3EF207871DD75648BE71FDDA8E309B23AB8B1F32" },
+    { "component": "opencc-darts", "url": "https://raw.githubusercontent.com/BYVoid/libdarts/3f7ffbadf1b917f0797c109434eb03d9f835819e/LICENSE", "outputPath": "opencc-darts/Carbo-Kuo-LICENSE", "size": 1485, "sha256": "E153E4BA6216882B4DC29ED57F4F40BA5FA0238F5661F50CD0543DB0D832976E" }
+  ],
+  "dartsSourceArchive": {
+    "version": "0.32g",
+    "url": "https://storage.googleapis.com/google-code-archive-downloads/v2/code.google.com/darts-clone/darts-clone-0.32g.tar.gz",
+    "metadataUrl": "https://storage.googleapis.com/google-code-archive/v2/code.google.com/darts-clone/downloads-page-1.json",
+    "filename": "darts-clone-0.32g.tar.gz",
+    "size": 108147,
+    "sha1FromUpstream": "D27B1F11513FF57436BEA41099DDD7CA20701B41",
+    "sha256": "E91A7DA66D1997670C8900D224A7EBC3BF512BE92311296BC040D33556DB18B7",
+    "notices": [
+      { "component": "opencc-darts", "path": "darts-clone-0.32g/COPYING", "outputPath": "opencc-darts/Susumu-Yata-COPYING", "size": 1481, "sha256": "155F59997298EE336602C49F9C1110F268AC394CA2197EB02647A3555935AD52" },
+      { "component": "opencc-darts", "path": "darts-clone-0.32g/AUTHORS", "outputPath": "opencc-darts/AUTHORS", "size": 28, "sha256": "AA20F8E6AEEB3296DD61B2B82D7EFF85657ED8B61C4D9692B7D01FCD8DC3CD22" }
+    ],
+    "originalHeader": { "path": "darts-clone-0.32g/include/darts.h", "size": 51102, "sha256": "B0A155444312C9102F3A315EDD4ED06101857C0F29FC621096B770E3DD78077A" },
+    "vendoredHeader": { "path": "deps/darts-clone/darts.h", "size": 51090, "sha256": "E5950A126D600116C8DA4344EA6E66E6E552A57BD71CF07CBB90CD2E81658C92" },
+    "upstreamModifications": [
+      { "revision": "3f7ffbadf1b917f0797c109434eb03d9f835819e", "repository": "https://github.com/BYVoid/libdarts.git", "description": "id_type 从 unsigned int 改为 size_t" },
+      { "revision": "a4f8a88634597118c78bd3ffa3ea5c34abec0482", "repository": "https://github.com/BYVoid/OpenCC.git", "description": "values 的返回类型移除无意义的 const" }
+    ]
+  },
+  "rapidjsonSource": {
+    "repository": "https://github.com/Tencent/rapidjson.git",
+    "revision": "f54b0e47a08782a6131cc3d60f94d038fa6e0a51",
+    "tag": "v1.1.0",
+    "vendoredPrefix": "deps/rapidjson-1.1.0/rapidjson",
+    "headers": 35,
+    "exactUpstreamHeaders": 34,
+    "existingModifiedHeader": "rapidjson.h",
+    "modification": "已有 OpenCC 副本的 MSVC ARM 检测另包含 _M_ARM64；不修改原文件",
+    "jsonCheckerIncluded": false
+  },
+  "excludedRuntimeComponents": [
+    "librime glog、googletest 和外部插件：构建中关闭或不获取",
+    "OpenCC google-benchmark、gtest、pybind11：构建中关闭",
+    "OpenCC 内置 marisa：改由固定独立 marisa 目标提供",
+    "RapidJSON bin/jsonchecker：不在 OpenCC 的内置头文件清单或 DLL 中",
+    "TCLAP：仅用于 OpenCC 构建时的命令行工具；这些工具不属于此运行库分发范围"
+  ]
+}

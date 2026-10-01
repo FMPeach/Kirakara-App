@@ -1,0 +1,34 @@
+name: kirakara_app
+description: Local-first KTV controller and stage output prototype.
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  ffi: ^2.1.0
+  http: ^1.2.0
+  sqlite3: ^2.4.0
+  sqlite3_flutter_libs: ^0.5.0
+  path: ^1.9.0
+  path_provider: ^2.1.5
+  qr_flutter: ^4.1.0
+  xml: ^7.0.1
+  file_picker: ^11.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - html/
+    - assets/branding/app_icon.png
+    - assets/branding/wordmark.png

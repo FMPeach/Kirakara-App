@@ -1,0 +1,15 @@
+diff --git a/virtualenv.py b/virtualenv.py
+--- a/virtualenv.py
++++ b/virtualenv.py
+@@ -934,7 +934,10 @@ def call_subprocess(
+                 try:
+                     line = line.decode(encoding)
+                 except UnicodeDecodeError:
+-                    line = line.decode(fs_encoding)
++                    try:
++                        line = line.decode(fs_encoding)
++                    except UnicodeDecodeError:
++                        line = line.decode("mbcs")
+                 if not line:
+                     break
+                 line = line.rstrip()

@@ -1,0 +1,89 @@
+diff --git a/src/subprocess-win32.cc b/src/subprocess-win32.cc
+index ff3baac..723718d 100644
+--- a/src/subprocess-win32.cc
++++ b/src/subprocess-win32.cc
+@@ -18,11 +18,26 @@
+ #include <stdio.h>
+ 
+ #include <algorithm>
++#include <vector>
+ 
+ #include "util.h"
+ 
+ using namespace std;
+ 
++namespace {
++
++bool UTF8ToWide(const string& input, vector<wchar_t>* output) {
++  int length = MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
++                                   input.c_str(), -1, NULL, 0);
++  if (!length)
++    return false;
++  output->resize(length);
++  return MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS,
++                             input.c_str(), -1, &(*output)[0], length) != 0;
++}
++
++}  // anonymous namespace
++
+ Subprocess::Subprocess(bool use_console) : child_(NULL) , overlapped_(),
+                                            is_reading_(false),
+                                            use_console_(use_console) {
+@@ -89,9 +104,9 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
+   if (nul == INVALID_HANDLE_VALUE)
+     Fatal("couldn't open nul");
+ 
+-  STARTUPINFOA startup_info;
++  STARTUPINFOW startup_info;
+   memset(&startup_info, 0, sizeof(startup_info));
+-  startup_info.cb = sizeof(STARTUPINFO);
++  startup_info.cb = sizeof(STARTUPINFOW);
+   if (!use_console_) {
+     startup_info.dwFlags = STARTF_USESTDHANDLES;
+     startup_info.hStdInput = nul;
+@@ -109,7 +124,10 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
+ 
+   // Do not prepend 'cmd /c' on Windows, this breaks command
+   // lines greater than 8,191 chars.
+-  if (!CreateProcessA(NULL, (char*)command.c_str(), NULL, NULL,
++  vector<wchar_t> wide_command;
++  if (!UTF8ToWide(command, &wide_command))
++    Win32Fatal("MultiByteToWideChar");
++  if (!CreateProcessW(NULL, &wide_command[0], NULL, NULL,
+                       /* inherit handles */ TRUE, process_flags,
+                       NULL, NULL,
+                       &startup_info, &process_info)) {
+diff --git a/src/subprocess_test.cc b/src/subprocess_test.cc
+index 073fe86..b156913 100644
+--- a/src/subprocess_test.cc
++++ b/src/subprocess_test.cc
+@@ -72,6 +72,29 @@ TEST_F(SubprocessTest, NoSuchCommand) {
+ #endif
+ }
+ 
++#ifdef _WIN32
++TEST_F(SubprocessTest, UnicodeCommandLine) {
++  const wchar_t* wide_path = L"ninja-unicode-\x6D4B\x8BD5.tmp";
++  DeleteFileW(wide_path);
++  HANDLE file = CreateFileW(wide_path, GENERIC_WRITE, 0, NULL, CREATE_NEW,
++                            FILE_ATTRIBUTE_NORMAL, NULL);
++  ASSERT_NE(INVALID_HANDLE_VALUE, file);
++  ASSERT_TRUE(CloseHandle(file));
++
++  const char* utf8_path =
++      "ninja-unicode-\xE6\xB5\x8B\xE8\xAF\x95.tmp";
++  string command = "cmd.exe /d /c if exist \"" + string(utf8_path) +
++                   "\" (exit /b 0) else (exit /b 1)";
++  Subprocess* subproc = subprocs_.Add(command);
++  ASSERT_NE((Subprocess *) 0, subproc);
++  while (!subproc->Done())
++    subprocs_.DoWork();
++  ExitStatus status = subproc->Finish();
++  EXPECT_TRUE(DeleteFileW(wide_path));
++  EXPECT_EQ(ExitSuccess, status);
++}
++#endif
++
+ #ifndef _WIN32
+ 
+ TEST_F(SubprocessTest, InterruptChild) {

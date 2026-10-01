@@ -1,0 +1,32 @@
+diff --git a/packages/flutter_tools/lib/src/build_system/targets/windows.dart b/packages/flutter_tools/lib/src/build_system/targets/windows.dart
+--- a/packages/flutter_tools/lib/src/build_system/targets/windows.dart
++++ b/packages/flutter_tools/lib/src/build_system/targets/windows.dart
+@@ -81,9 +81,27 @@ class UnpackWindows extends Target {
+         'ephemeral',
+       ),
+     );
++    // Kirakara distributes local-engine symbols as a separate optional package.
++    // Only a missing local-engine PDB is optional; stock behavior is unchanged.
++    // Local PDB links and all other required embedding files remain strict.
++    final List<String> artifacts = _kWindowsArtifacts.where((String file) {
++      if (file != 'flutter_windows.dll.pdb' ||
++          environment.artifacts.localEngineInfo == null) {
++        return true;
++      }
++      final String path = environment.fileSystem.path.join(engineSourcePath, file);
++      final FileSystemEntityType type = environment.fileSystem.typeSync(
++        path,
++        followLinks: false,
++      );
++      if (type == FileSystemEntityType.link) {
++        throw FileSystemException('Invalid local-engine PDB link', path);
++      }
++      return type != FileSystemEntityType.notFound;
++    }).toList();
+     final Depfile depfile = unpackDesktopArtifacts(
+       fileSystem: environment.fileSystem,
+-      artifacts: _kWindowsArtifacts,
++      artifacts: artifacts,
+       engineSourcePath: engineSourcePath,
+       outputDirectory: outputDirectory,
+       clientSourcePaths: <String>[clientSourcePath],

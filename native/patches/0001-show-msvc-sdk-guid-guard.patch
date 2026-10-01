@@ -1,0 +1,13 @@
+diff --git a/apps/show_host/media/mf_d3d11_video_decoder.cpp b/apps/show_host/media/mf_d3d11_video_decoder.cpp
+index ce9c253..25da8c8 100644
+--- a/apps/show_host/media/mf_d3d11_video_decoder.cpp
++++ b/apps/show_host/media/mf_d3d11_video_decoder.cpp
+@@ -28,7 +28,7 @@
+ // headers shipped with this toolchain only carry MF_XVP_SAMPLE_LOCK_TIMEOUT.
+ // Value taken from Wine's mfidl.idl. TRUE disables frame-rate conversion in
+ // the video processor MFT (deinterlacing still runs).
+-#ifndef MF_XVP_DISABLE_FRC
++#if defined(__MINGW32__) && !defined(MF_XVP_DISABLE_FRC)
+ static const GUID MF_XVP_DISABLE_FRC = {
+     0x2c0afa19, 0x7a97, 0x4d5a,
+     {0x9e, 0xe8, 0x16, 0xd4, 0xfc, 0x51, 0x8d, 0x8c}};

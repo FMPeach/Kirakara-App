@@ -1,0 +1,201 @@
+{
+  "schemaVersion": 1,
+  "target": "windows-x64",
+  "zinnia": {
+    "repository": "https://github.com/taku910/zinnia.git",
+    "revision": "581faa8f6f15e4a7b21964be3a5ec36265c80e5b",
+    "version": "0.06",
+    "license": "BSD-3-Clause",
+    "sourceSubdirectory": "zinnia",
+    "licenseFile": {
+      "path": "zinnia/COPYING",
+      "size": 1494,
+      "sha256": "822856FC8CEC7C88E90E182DACD8ECA5306836FC09DF817C9DBB1D6337F6A1CC"
+    },
+    "prebuiltBuild": {
+      "schemaVersion": 1,
+      "platformToolset": "v145",
+      "toolsetDirectoryVersion": "14.51.36231",
+      "compilerFileVersion": "19.51.36243.0",
+      "compilerSha256": "DB8DD1B25C5ADE491ACB7F4D01399432C1440A2E3743619439933ABFF1986545",
+      "librarianFileVersion": "14.51.36243.0",
+      "librarianSha256": "F15C9F59A3CB17350ABDE3E75603278E0991F9FF8E01080AFE3A877D56DAFBD3",
+      "windowsSdkVersion": "10.0.26100.0",
+      "architecture": "x64",
+      "logicalSourceRoot": "zinnia-src",
+      "logicalBuildRoot": "zinnia-build",
+      "logicalToolsetRoot": "msvc-v145",
+      "logicalWindowsSdkRoot": "windows-sdk-10.0.26100.0",
+      "commonCompilerFlags": [
+        "/nologo",
+        "/c",
+        "/utf-8",
+        "/EHsc",
+        "/W0",
+        "/FC",
+        "/Brepro",
+        "/experimental:deterministic",
+        "/DZINNIA_STATIC_LIBRARY",
+        "/DHAVE_WINDOWS_H",
+        "/DHAVE_SYS_TYPES_H",
+        "/DHAVE_SYS_STAT_H",
+        "/DHAVE_STRING_H",
+        "/DHAVE_FCNTL_H",
+        "/DHAVE_CTYPE_H",
+        "/DHAVE_STDLIB_H",
+        "/DHAVE_STDINT_H",
+        "/DNOMINMAX",
+        "/DWORDS_LITENDIAN",
+        "/DVERSION=\"0.06\"",
+        "/DPACKAGE=\"zinnia\""
+      ],
+      "debugCompilerFlags": [
+        "/D_DEBUG",
+        "/MDd",
+        "/Ob0",
+        "/Od",
+        "/RTC1"
+      ],
+      "releaseCompilerFlags": [
+        "/DNDEBUG",
+        "/MD",
+        "/O2",
+        "/Ob2"
+      ],
+      "librarianFlags": [
+        "/nologo",
+        "/Brepro",
+        "/MACHINE:X64"
+      ],
+      "profileLibrary": "Release",
+      "profileRuntimeLibrary": "/MD"
+    },
+    "prebuiltArtifacts": {
+      "header": {
+        "path": "include/zinnia.h",
+        "size": 8433,
+        "sha256": "7F89FB64DD633C714AA164049E408EBB3D98A5FD01705E8DC38CC5BA747376CC"
+      },
+      "debugLibrary": {
+        "path": "Debug/kirakara_zinnia.lib",
+        "size": 3966422,
+        "sha256": "77ABFFE53E99059952FDB845E07888E2D2B5EC7D364A70A878774CC24734C573",
+        "runtimeLibrary": "/MDd"
+      },
+      "releaseLibrary": {
+        "path": "Release/kirakara_zinnia.lib",
+        "size": 2453546,
+        "sha256": "76F9E7D490332181E2606AD66A984C10A9080C7A88209C793D29581A28DA2274",
+        "runtimeLibrary": "/MD"
+      },
+      "provenance": {
+        "path": "provenance.json",
+        "size": 2782,
+        "sha256": "4DE7F1EA81C60F2149C1ADDFDDEE8F9A643C99E48DA7714A558B17D5E4894FA6"
+      },
+      "profileUses": "Release",
+      "reproducibleBuilds": 2,
+      "byteIdentical": true
+    }
+  },
+  "librime": {
+    "repository": "https://github.com/rime/librime.git",
+    "revision": "e053fb29e4a7c584d93c81e2e314bc1c9efca0a6",
+    "version": "1.14.0",
+    "license": "BSD-3-Clause",
+    "submodules": {
+      "deps/leveldb": "99b3c03b3284f5886f9ef9a4ef703d57373e61be",
+      "deps/marisa-trie": "0d4e8ab58eec355facf8f65ff11ef811b330e373",
+      "deps/opencc": "e5d6c5f1b78e28a5797e7ad3ede3513314e544b7",
+      "deps/yaml-cpp": "f7320141120f720aecc4c32be25586e7da9eb978"
+    },
+    "plugins": [],
+    "enableLogging": false,
+    "legacyGplPluginAllowed": false,
+    "boost": {
+      "version": "1.88.0",
+      "url": "https://archives.boost.io/release/1.88.0/source/boost_1_88_0.tar.bz2",
+      "size": 143894119,
+      "sha256": "46D9D2C06637B219270877C9E16155CBD015B6DC84349AF064C088E9B5B12F7B",
+      "license": "BSL-1.0",
+      "extraction": "只使用 boost/ 头文件和 LICENSE_1_0.txt；不提取含 Windows 非法文件名的上游测试"
+    },
+    "prebuiltRuntime": {
+      "version": "1.13.1",
+      "releaseUrl": "https://github.com/rime/librime/releases/tag/1.13.1",
+      "asset": {
+        "name": "rime-1c23358-Windows-msvc-x64.7z",
+        "url": "https://github.com/rime/librime/releases/download/1.13.1/rime-1c23358-Windows-msvc-x64.7z",
+        "size": 7220342,
+        "sha256": "05FCF8CC2D058A0186DD9F04D6E021AD41687DB50DC81E85CF655DFABFDF0009"
+      },
+      "dll": {
+        "archivePath": "dist/lib/rime.dll",
+        "size": 3524096,
+        "sha256": "2D8F1BC3737635A11D9FB1BFCA4DC9E70533633930A8A0142A81CA879C39C45B",
+        "architecture": "x64",
+        "upstreamBuildPathPrefixes": [
+          "D:\\a\\librime\\librime\\",
+          "C:\\TMP\\",
+          "C:\\TEMP\\"
+        ]
+      },
+      "licenseFile": {
+        "path": "third_party/licenses/librime-BSD-3-Clause.txt",
+        "size": 1513,
+        "sha256": "F67D27A6D2D586FCFED4B4C886A83747095396A39B6641E18E855086BE2EC400"
+      }
+    }
+  },
+  "mozc": {
+    "repository": "https://github.com/google/mozc.git",
+    "revision": "7c1e06d39d6a8446e15a324700c48dcb00846039",
+    "license": "BSD-3-Clause and upstream third-party notices",
+    "bridgeSource": "native/mozc/kirakara_mozc_bridge.cc",
+    "bazelTarget": "//session:kirakara_mozc_bridge",
+    "bazel": {
+      "version": "9.0.2",
+      "url": "https://github.com/bazelbuild/bazel/releases/download/9.0.2/bazel-9.0.2-windows-x86_64.exe",
+      "size": 57217192,
+      "sha256": "E45277210DA3FC1999E474EDCE5D9E73B37A6FDC0B78418880D9ADAD12276C4E",
+      "license": "Apache-2.0"
+    },
+    "llvm": {
+      "version": "20.1.1",
+      "url": "https://github.com/llvm/llvm-project/releases/download/llvmorg-20.1.1/clang+llvm-20.1.1-x86_64-pc-windows-msvc.tar.xz",
+      "size": 939286624,
+      "sha256": "F8114CB674317E8A303731B1F9D22BF37B8C571B64F600ABE528E92275ED4ACE",
+      "sourcePin": "来自锁定 Mozc revision 的 src/build_tools/update_deps.py",
+      "license": "Apache-2.0 WITH LLVM-exception and bundled upstream notices"
+    },
+    "prebuiltRuntime": {
+      "architecture": "x64",
+      "buildMode": "opt",
+      "executable": {
+        "size": 22282752,
+        "sha256": "7D2B6D5D39BF29754E451E893A6F9AA8A44CD847CA19823AC6EC619A1DA8EE3F"
+      },
+      "bridgeSourceSize": 8554,
+      "bridgeSourceSha256": "C0F487A2F137DA54A92083A724DF53294CCB4D748F4294B2F6516A7A596E9A87",
+      "licenseFile": {
+        "path": "third_party/licenses/Mozc-BSD-3-Clause.txt",
+        "size": 5734,
+        "sha256": "44CDD923B91EA9199293ABECC2762C70C87DBF1E581C027A94C416368D1A648C"
+      }
+    }
+  },
+  "imeRuntime": {
+    "packageFormatVersion": 2,
+    "architecture": "x64",
+    "zinniaLicenseFile": {
+      "path": "third_party/licenses/Zinnia-BSD-3-Clause.txt",
+      "size": 1494,
+      "sha256": "822856FC8CEC7C88E90E182DACD8ECA5306836FC09DF817C9DBB1D6337F6A1CC"
+    }
+  },
+  "prebuilt": {
+    "debug": null,
+    "profile": null,
+    "release": null
+  }
+}

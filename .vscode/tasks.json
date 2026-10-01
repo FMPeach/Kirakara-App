@@ -1,0 +1,106 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Kirakara：运行 main.dart（flutterw）",
+      "type": "process",
+      "command": "${workspaceFolder}\\flutterw.cmd",
+      "args": [
+        "run",
+        "-d",
+        "windows",
+        "-t",
+        "lib/main.dart"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "focus": true,
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "problemMatcher": [],
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "label": "Kirakara：获取依赖（flutterw）",
+      "type": "process",
+      "command": "${workspaceFolder}\\flutterw.cmd",
+      "args": [
+        "pub",
+        "get"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Kirakara：代码分析（flutterw）",
+      "type": "process",
+      "command": "${workspaceFolder}\\flutterw.cmd",
+      "args": [
+        "analyze"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Kirakara：运行测试（flutterw）",
+      "type": "process",
+      "command": "${workspaceFolder}\\flutterw.cmd",
+      "args": [
+        "test"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": "test",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Kirakara：构建 Windows Release（flutterw）",
+      "type": "process",
+      "command": "${workspaceFolder}\\flutterw.cmd",
+      "args": [
+        "build",
+        "windows",
+        "--release"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "showReuseMessage": false
+      },
+      "problemMatcher": []
+    }
+  ]
+}

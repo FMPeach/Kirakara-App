@@ -1,0 +1,322 @@
+{
+  "schemaVersion": 1,
+  "zinniaTomoe": {
+    "license": "LGPL-2.1",
+    "sourceRevision": "zinnia-tomoe-0.6.0-20080911",
+    "sourceUrl": "https://downloads.sourceforge.net/project/zinnia/zinnia-tomoe/0.6.0-20080911/zinnia-tomoe-0.6.0-20080911.tar.bz2",
+    "sourceSha256": "FD1A264B8AEEA0EBEC59E8C8765864A9543A75FB2DBA349745BB3A3587790927",
+    "sourceSize": 30666390,
+    "sourceLicensePath": "zinnia-tomoe-0.6.0-20080911/COPYING",
+    "sourceLicenseSha256": "A190DC9C8043755D90F8B0A75FA66B9E42D4AF4C980BF5DDC633F0124DB3CEE7",
+    "binaryPackage": null,
+    "reproductionVerified": true,
+    "converterRevision": "581faa8f6f15e4a7b21964be3a5ec36265c80e5b",
+    "converterArguments": [
+      "source.model.txt",
+      "output.model"
+    ],
+    "models": [
+      {
+        "path": "handwriting-ja.model",
+        "size": 25875980,
+        "sha256": "BDB32016DF7238D28965F77524FD16DD5AD13EEFAA36D61632991D1859E41B22",
+        "sourcePath": "zinnia-tomoe-0.6.0-20080911/handwriting-ja.model.txt",
+        "sourceSha256": "1EAC59C187739BB5B6F8E051DB704FA3E779192B884155A41EBD192F3128AFFC"
+      },
+      {
+        "path": "handwriting-zh_CN.model",
+        "size": 26834816,
+        "sha256": "E16153D1FF267CD479AEA260D6F71A3EDDA8B4BA06DB2D121513ADDA65A4449E",
+        "sourcePath": "zinnia-tomoe-0.6.0-20080911/handwriting-zh_CN.model.txt",
+        "sourceSha256": "5DDA185944ABFA76A1FFE9FA9E3CF8629B1051EF85FB7FF73B1E379C401714B0"
+      }
+    ]
+  },
+  "rime": {
+    "excludedSchemas": [
+      "cangjie5",
+      "cangjie5_express"
+    ],
+    "sources": [
+      {
+        "path": "luna_pinyin.schema.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "19726ceca1b343d660382903d100f517bdc775ab",
+        "size": 2077,
+        "sha256": "DF48CAA2901CA04D79978AF926C79B118B3E6E5B5CF97B9D8C9B9D67D748A744",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.26",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "luna_pinyin_simp.schema.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "290639dca15207b7c7b1ed1c9b33ac48405e529d",
+        "size": 739,
+        "sha256": "82D9A2B44FA207D4D49416D16AF5D2FCAB6B1604F4083C384372360C824EA919",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.22",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "luna_pinyin_fluency.schema.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "290639dca15207b7c7b1ed1c9b33ac48405e529d",
+        "size": 527,
+        "sha256": "E616957B46D0B920C93937DB67711C6AA3DD23A7249F8E22D79676BEBEDB4BC2",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.29",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "luna_pinyin_tw.schema.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "290639dca15207b7c7b1ed1c9b33ac48405e529d",
+        "size": 623,
+        "sha256": "A65AE62280BD907DF84309C05DF7BA27AC8FCAA88933BDE5D969C4A4634875F4",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.20",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "luna_pinyin.dict.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "9593090080294a7dfc3c864c087e4070459c0168",
+        "size": 891238,
+        "sha256": "9BB8B1C123B6DF07B3E68007143E9B1A161CD8DDB1854DC55BBD8AF06B0078D0",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "2024.02.10",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "pinyin.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "0e37c56b47a10d83f30b66c69eef830a40f76566",
+        "size": 4820,
+        "sha256": "22915339D6505D8911EDD929B055145235EB4F66EE6D4DBDEDB832E31BE40C35",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": null,
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "default.yaml",
+        "repository": "https://github.com/rime/rime-prelude.git",
+        "revision": "46438e6de4b628ab01fa808c47528313990db472",
+        "size": 1365,
+        "sha256": "DD55653A991F9418EB425EE2112666F82E3E753C5CE3ED5702DD243041A45382",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.40",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "key_bindings.yaml",
+        "repository": "https://github.com/rime/rime-prelude.git",
+        "revision": "e02e2d85fe926b5dfc0c2a343c69df03302a39aa",
+        "size": 2954,
+        "sha256": "5C484257CCCBAB899BC874DFEB9257CE7190C99FEE3ABC33321767C8DAC56AF9",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": null,
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "punctuation.yaml",
+        "repository": "https://github.com/rime/rime-prelude.git",
+        "revision": "46438e6de4b628ab01fa808c47528313990db472",
+        "size": 2107,
+        "sha256": "D6F89592149098F0A2D0ED3E5C83F49ADB6226CDF1D967B0BC0D293F4E5C496A",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": null,
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "symbols.yaml",
+        "repository": "https://github.com/rime/rime-prelude.git",
+        "revision": "3c602fdb0dcca7825103e281efc50ef7580f99ec",
+        "size": 28411,
+        "sha256": "F12EE3A61BB9739C29FE6BA12890C5C9C50CA38F63CE9C85E1A16E223AE0B04F",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "1.6",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "stroke.schema.yaml",
+        "repository": "https://github.com/rime/rime-stroke.git",
+        "revision": "c91a1231f6a933364ada90c8ec5030a0d94010c0",
+        "size": 3043,
+        "sha256": "6F0BB7AEC4EB243011C3958B891D6A719553847A93F20BF7FA820B9185525AA3",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.5",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "stroke.dict.yaml",
+        "repository": "https://github.com/rime/rime-stroke.git",
+        "revision": "7c9874c6b2e0b94947653e9a7de6f99623ff27e4",
+        "size": 2219276,
+        "sha256": "DB0B3459545F0299728E14271431B025B58EA530F4D5BF49B7A89DCAF2B9650B",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "1.1",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "essay.txt",
+        "repository": "https://github.com/rime/rime-essay.git",
+        "revision": "573bbeb53e53d4331fff5fae151b814c67b8d0cd",
+        "size": 5887849,
+        "sha256": "24A536267EFC0B6C732D647415F13FE72AE8DD6B862410B734D2DFC41FF9BA21",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": null,
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "bopomofo.schema.yaml",
+        "repository": "https://github.com/rime/rime-bopomofo.git",
+        "revision": "c7618f4f5728e1634417e9d02ea50d82b71956ab",
+        "size": 5265,
+        "sha256": "B98E3FBD6F63A3C8A2AEB5A81727A22F7B25C869C0E8B328AF2565A8CAE7C4F7",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "2.4",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "bopomofo_tw.schema.yaml",
+        "repository": "https://github.com/rime/rime-bopomofo.git",
+        "revision": "c19f19edc4820a7743f8ea59573f0277c26a9f67",
+        "size": 770,
+        "sha256": "EF570AD2EA771B34EDEBD7CD71F66A460651B858EDB9160B4C195D8EF5876FDD",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "1.8",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "bopomofo_express.schema.yaml",
+        "repository": "https://github.com/rime/rime-bopomofo.git",
+        "revision": "c4f3914abb09c65239c09efc51b2dc38d207b35d",
+        "size": 627,
+        "sha256": "7C19D1BD857ACDD7B8DF0A6D8C6BC129E3F3280831E39BD35A3CB8ADA10734E3",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "2.3",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "zhuyin.yaml",
+        "repository": "https://github.com/rime/rime-bopomofo.git",
+        "revision": "c4f3914abb09c65239c09efc51b2dc38d207b35d",
+        "size": 1132,
+        "sha256": "77931AB77952FDB2535F8ADDEBC0918453E0220A50CA176380971203F14C48BE",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": null,
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "terra_pinyin.schema.yaml",
+        "repository": "https://github.com/rime/rime-terra-pinyin.git",
+        "revision": "29236b445785469f25adf3121ffb144e98661583",
+        "size": 4505,
+        "sha256": "0A540517B34FC70B3F26DA8E6B8A17017E1228E3D4BAC70F254E8B84CBC7317C",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.20",
+        "legacyTextEquivalent": true
+      },
+      {
+        "path": "terra_pinyin.dict.yaml",
+        "repository": "https://github.com/rime/rime-terra-pinyin.git",
+        "revision": "333ec4128fa1f93924a0707da3c623ccd92a73f0",
+        "size": 1799540,
+        "sha256": "24E2CD3B14D2B4DF5349DCC7F3BB3441C816BE429D3794C934B102EF3C3D9FF7",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "2021.08.05",
+        "legacyTextEquivalent": true,
+        "additionalNotice": "CC-BY-SA-3.0 (CC-CEDICT 引用；保留原始头部与其许可)"
+      },
+      {
+        "path": "luna_quanpin.schema.yaml",
+        "repository": "https://github.com/rime/rime-luna-pinyin.git",
+        "revision": "290639dca15207b7c7b1ed1c9b33ac48405e529d",
+        "size": 398,
+        "sha256": "1D2BC8F0A62179F149F6449185ED787F761E8F53C304E5E11A78461B9A8D7999",
+        "license": "LGPL-3.0",
+        "licensePath": "LICENSE",
+        "licenseSha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768",
+        "version": "0.2",
+        "legacyTextEquivalent": true
+      }
+    ],
+    "auditComplete": false,
+    "dataPackage": null,
+    "sourceInventoryVerified": true,
+    "openccLock": "third_party/rime-opencc.lock.json",
+    "licenseDocuments": [
+      {
+        "path": "LGPL-3.0.txt",
+        "sourcePath": "third_party/licenses/Rime-data-LGPL-3.0.txt",
+        "size": 7651,
+        "sha256": "DA7EABB7BAFDF7D3AE5E9F223AA5BDC1EECE45AC569DC21B3B037520B4464768"
+      },
+      {
+        "path": "GPL-3.0-LGPL-supplement.txt",
+        "sourcePath": "third_party/licenses/GPL-3.0-LGPL-supplement.txt",
+        "size": 35149,
+        "sha256": "3972DC9744F6499F0F9B2DBF76696F2AE7AD8AF9B23DDE66D6AF86C9DFB36986"
+      },
+      {
+        "path": "CC-BY-SA-3.0.txt",
+        "sourcePath": ".kfe/downloads/CC-BY-SA-3.0.txt",
+        "sourceRepository": "https://github.com/cc-archive/legalcode-pre-2014-06-26.git",
+        "sourceRevision": "4d2de083a6dcc5095ed1a30885bc48f868b9bb55",
+        "sourceUrl": "https://raw.githubusercontent.com/cc-archive/legalcode-pre-2014-06-26/4d2de083a6dcc5095ed1a30885bc48f868b9bb55/by-sa_3.0.txt",
+        "size": 22238,
+        "sha256": "F199AF7E90E29E197A4BE87B9A6D585A29FF5EAE2B977503E590C4BD8FE6E8B3"
+      }
+    ],
+    "runtimeModification": {
+      "patch": "native/patches/0002-rime-exclude-unused-cangjie.patch",
+      "purpose": "仅删除未使用的 cangjie5 启用入口；保留其他方案与词典原始内容",
+      "sha256": "A00EAAAD03953C390EDA152B13072098597170284663A852C85B21E55C728E32",
+      "resultFile": {
+        "path": "default.yaml",
+        "size": 1344,
+        "sha256": "545944692E5A3A67057AF7D7682F45FB88E60C4FEE46FF4C57C2159C4CE812E6"
+      }
+    }
+  },
+  "formalReleaseAllowed": false
+}

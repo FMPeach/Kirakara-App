@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "windows": {
+    "showHostDll": "D:\\path\\to\\Kirakara Show\\build\\bin\\libshow_host.dll"
+  }
+}

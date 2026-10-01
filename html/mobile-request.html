@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Kirakara 手机点歌</title>
+<style>
+:root {
+  --bg: #111216;
+  --surface: #1a1c22;
+  --surface2: #22242b;
+  --cream: #f4eee2;
+  --muted: #777777;
+  --red: #dd3e38;
+  --teal: #22c59b;
+  --amber: #f0a258;
+  --line: #2a2c33;
+  --radius: 12px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { height:100%; overflow:hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: var(--bg); color: var(--cream);
+  -webkit-tap-highlight-color: transparent; user-select: none;
+  display:flex; flex-direction:column; height:100dvh;
+}
+.header { background:var(--surface); padding:9px 16px 7px; border-bottom:1px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:space-between; }
+.header h1 { font-size:13px; font-weight:700; }
+.header .ip-tag { font-size:10px; color:var(--muted); background:var(--surface2); padding:2px 8px; border-radius:99px; font-weight:700; }
+.tabs { display:flex; flex-shrink:0; border-bottom:1px solid var(--line); background:var(--bg); }
+.tab { flex:1; text-align:center; padding:10px 0; font-size:13px; font-weight:700; color:var(--muted); border-bottom:2px solid transparent; cursor:pointer; }
+.tab.active { color:var(--cream); border-bottom-color:var(--teal); }
+.search-bar { padding:8px 14px; display:flex; gap:8px; flex-shrink:0; background:var(--bg); }
+.search-input { flex:1; height:38px; border-radius:var(--radius); border:1px solid var(--line); background:var(--surface); color:var(--cream); padding:0 12px; font-size:14px; font-weight:600; outline:none; }
+.search-input::placeholder { color:var(--muted); }
+.search-input:focus { border-color:var(--teal); }
+.btn { height:38px; padding:0 14px; border-radius:var(--radius); border:none; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.btn:active { opacity:.7; }
+.btn-teal { background:var(--teal); color:#111216; }
+.btn-red { background:var(--red); color:#fff; }
+.content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
+.content::-webkit-scrollbar { width:0; }
+.song-card { display:flex; align-items:center; gap:12px; padding:11px 14px; border-bottom:1px solid color-mix(in srgb, var(--line) 50%, transparent); cursor:pointer; }
+.song-card:active { background:var(--surface); }
+.song-card .idx { width:30px; height:30px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--amber); flex-shrink:0; }
+.song-card .info { flex:1; min-width:0; }
+.song-card .stitle { font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.song-card .sartist { font-size:11px; color:var(--muted); font-weight:600; margin-top:2px; }
+.song-card .smeta { font-size:10px; color:var(--muted); margin-top:1px; }
+.song-card .add-btn {
+  width:52px; height:34px; border-radius:10px; border:1.5px solid var(--teal);
+  background:transparent; color:var(--teal); font-size:15px; font-weight:700;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+}
+.song-card .add-btn:active { background:var(--teal); color:#111216; }
+.bump-btn {
+  width:28px; height:28px; border-radius:8px; border:1px solid var(--line);
+  background:transparent; color:var(--muted); font-size:13px;
+  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  margin-right:4px;
+}
+.bump-btn:active { background:var(--surface2); }
+.queue-card { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid color-mix(in srgb, var(--line) 50%, transparent); }
+.queue-card .qidx { font-size:11px; font-weight:800; color:var(--muted); width:22px; text-align:center; flex-shrink:0; }
+.queue-card .qinfo { flex:1; min-width:0; }
+.queue-card .qtitle { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.queue-card .qartist { font-size:11px; color:var(--muted); font-weight:600; margin-top:1px; }
+.qbtn { width:28px; height:28px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.qbtn.danger:active { background:var(--red); color:#fff; border-color:var(--red); }
+.ext-status { font-size:10px; color:var(--muted); margin-top:3px; display:none; }
+.bot-bar { display:flex; align-items:center; gap:10px; padding:8px 14px 10px; background:var(--surface); border-top:1px solid var(--line); flex-shrink:0; }
+.bot-bar.idle .bot-title { color:var(--muted); }
+.bot-cover { width:36px; height:36px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; cursor:pointer; }
+.bot-cover:active { opacity:.7; }
+.bot-info { flex:1; min-width:0; cursor:pointer; }
+.bot-info:active { opacity:.8; }
+.bot-title { font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.bot-artist { font-size:10px; color:var(--muted); font-weight:600; margin-top:1px; }
+.bot-queue { display:flex; align-items:center; gap:3px; cursor:pointer; flex-shrink:0; padding:6px 10px; border-radius:10px; background:var(--surface2); }
+.bot-queue:active { opacity:.7; }
+.bot-queue-icon { font-size:15px; }
+.bot-queue-count { font-size:13px; font-weight:800; color:var(--teal); min-width:18px; text-align:center; }
+.qp-backdrop { position:fixed; inset:0; z-index:99; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .25s; }
+.qp-backdrop.open { opacity:1; pointer-events:auto; }
+.queue-panel { position:fixed; top:0; left:0; right:0; bottom:0; z-index:100; background:var(--bg); display:flex; flex-direction:column; padding-top:max(40px, env(safe-area-inset-top, 20px)); transform:translateY(100%); transition:transform .25s cubic-bezier(.4,0,.2,1); }
+.queue-panel.open { transform:translateY(0); }
+.qp-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 10px; flex-shrink:0; }
+.qp-title { font-size:13px; font-weight:700; color:var(--cream); }
+.po-close { width:32px; height:32px; border-radius:50%; background:var(--surface2); border:none; color:var(--muted); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.qp-now { padding:6px 16px 12px; flex-shrink:0; border-bottom:1px solid var(--line); }
+.qp-now-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+.qp-cover { width:44px; height:44px; border-radius:10px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+.qp-now-info { flex:1; min-width:0; }
+.qp-now-title { font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.qp-now-artist { font-size:12px; color:var(--muted); font-weight:600; margin-top:2px; }
+.qp-ctrls { display:flex; align-items:center; justify-content:center; gap:14px; }
+.qp-volume { display:flex; align-items:center; gap:8px; }
+.qp-divider { padding:10px 16px 4px; flex-shrink:0; font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.qp-body { flex:1; overflow-y:auto; min-height:0; }
+.qp-body::-webkit-scrollbar { width:0; }
+.mini-ctrl { width:34px; height:34px; border-radius:50%; background:var(--surface2); border:none; color:var(--cream); font-size:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
+.mini-ctrl.play-btn { background:var(--teal); color:#111216; width:38px; height:38px; font-size:15px; }
+.vol-btn { width:32px; height:32px; border-radius:50%; background:var(--surface2); border:none; color:var(--cream); font-size:18px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.vol-btn:active { background:var(--teal); color:#111216; }
+.vol-label { font-size:13px; font-weight:700; color:var(--cream); min-width:36px; text-align:center; }
+.section-header { padding:14px 14px 4px; font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.empty { text-align:center; padding:48px 20px; color:var(--muted); font-size:13px; font-weight:600; }
+.empty .icon { font-size:40px; margin-bottom:10px; opacity:.4; }
+.toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--teal); color:#111216; padding:7px 18px; border-radius:99px; font-size:12px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .3s; z-index:200; }
+.toast.show { opacity:1; }
+.toast.warn { background:var(--amber); }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/></svg>
+    Kirakara 点歌台
+  </h1>
+  <span class="ip-tag" id="serverIp">连接中…</span>
+</div>
+<div class="tabs">
+  <div class="tab active" data-tab="featured">推荐</div>
+  <div class="tab" data-tab="search">搜索</div>
+  <div class="tab" data-tab="ext">外链</div>
+</div>
+<div class="search-bar" id="searchBar" style="display:none">
+  <input class="search-input" id="searchInput" placeholder="歌名 / 歌手 / 编号…" autocomplete="off">
+  <button class="btn btn-teal" onclick="doSearch()">搜索</button>
+</div>
+<div id="extTab" style="display:none;flex-shrink:0;background:var(--bg);padding:10px 14px 6px">
+  <div style="display:flex;gap:6px">
+    <input class="search-input" id="extLinkInput" placeholder="BV... 或 B站视频链接" autocomplete="off">
+    <button class="btn btn-red" onclick="doResolve()">解析</button>
+  </div>
+  <div class="ext-status" id="extStatus"></div>
+</div>
+<div class="content" id="content"></div>
+<div class="bot-bar" id="botBar">
+  <div class="bot-cover" onclick="openQueue()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
+  <div class="bot-info" onclick="openQueue()">
+    <div class="bot-title" id="botTitle">等待点歌</div>
+    <div class="bot-artist" id="botArtist">加入歌曲开始播放</div>
+  </div>
+  <div class="bot-queue" onclick="openQueue()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="var(--teal)" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="var(--teal)" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="var(--teal)" stroke="none"/></svg>
+    <span class="bot-queue-count" id="botQueueCount">0</span>
+  </div>
+</div>
+<div class="qp-backdrop" id="qpBackdrop" onclick="closeQueue()"></div>
+<div class="queue-panel" id="queuePanel">
+  <div class="qp-header">
+    <span class="qp-title">已点列表 · <span id="qpCount">0</span> 首</span>
+    <button class="po-close" onclick="closeQueue()">✕</button>
+  </div>
+  <div class="qp-now">
+    <div class="qp-now-row">
+      <div class="qp-cover"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div class="qp-now-info">
+        <div class="qp-now-title" id="qpTitle">等待点歌</div>
+        <div class="qp-now-artist" id="qpArtist"></div>
+      </div>
+    </div>
+    <div class="qp-ctrls">
+      <div class="qp-volume">
+        <button class="vol-btn" id="qpKeyDown" onclick="doKey(-1)">♭</button>
+        <span class="vol-label" id="qpKeyLabel">0</span>
+        <button class="vol-btn" id="qpKeyUp" onclick="doKey(1)">♯</button>
+      </div>
+      <button class="mini-ctrl" id="qpTrack" onclick="doToggleTrack()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/></svg>
+      </button>
+      <button class="mini-ctrl play-btn" id="qpPlay" onclick="doTogglePlay()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6,3 20,12 6,21"/></svg>
+      </button>
+      <button class="mini-ctrl" onclick="doNext()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6,3 18,12 6,21"/><line x1="21" y1="3" x2="21" y2="21"/></svg>
+      </button>
+      <div class="qp-volume">
+        <button class="vol-btn" onclick="doVolume(-5)">−</button>
+        <span class="vol-label" id="qpVolLabel">72</span>
+        <button class="vol-btn" onclick="doVolume(5)">+</button>
+      </div>
+    </div>
+  </div>
+  <div class="qp-divider"><span>下一首</span></div>
+  <div class="qp-body" id="qpBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+const API = '';
+async function api(path, opts) { const r = await fetch(API + path, opts); if (!r.ok) throw new Error(r.status); return r.json(); }
+let currentTab = 'featured', featured = [], queueData = {current:null,upcoming:[],isPlaying:false};
+let playback = {isPlaying:false, volume:72, key:0, track:'vocal', currentSong:null};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
+  document.getElementById('searchInput').addEventListener('keydown', e => { if(e.key==='Enter') doSearch(); });
+  document.getElementById('extLinkInput').addEventListener('keydown', e => { if(e.key==='Enter') doResolve(); });
+  document.getElementById('serverIp').textContent = location.host;
+  loadFeatured(); pollState(); setInterval(pollState, 2000);
+});
+
+async function pollState() {
+  try {
+    const [q, p] = await Promise.all([api('/api/queue'), api('/api/playback')]);
+    queueData = q; playback = p;
+    document.getElementById('qpVolLabel').textContent = playback.volume;
+    updateKeyUI();
+    renderTrackButton();
+    if (playback.currentSong) {
+      document.getElementById('botTitle').textContent = playback.currentSong.title;
+      document.getElementById('botArtist').textContent = playback.currentSong.artist||'';
+      document.getElementById('botBar').classList.remove('idle');
+      document.getElementById('qpTitle').textContent = playback.currentSong.title;
+      document.getElementById('qpArtist').textContent = playback.currentSong.artist||'';
+    } else {
+      document.getElementById('botTitle').textContent = '等待点歌';
+      document.getElementById('botArtist').textContent = '加入歌曲开始播放';
+      document.getElementById('botBar').classList.add('idle');
+      document.getElementById('qpTitle').textContent = '等待点歌';
+      document.getElementById('qpArtist').textContent = '';
+    }
+    document.getElementById('qpPlay').innerHTML = playback.isPlaying
+      ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="5" y="3" width="5" height="18" rx="1"/><rect x="14" y="3" width="5" height="18" rx="1"/></svg>'
+      : '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6,3 20,12 6,21"/></svg>';
+    document.getElementById('botQueueCount').textContent = queueData.upcoming.length;
+    document.getElementById('qpCount').textContent = queueData.upcoming.length;
+    updateQueueList();
+  } catch(e) {}
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('searchBar').style.display = tab==='search'?'flex':'none';
+  document.getElementById('extTab').style.display = tab==='ext'?'block':'none';
+  if (tab==='featured') renderFeatured();
+  else if (tab==='search') { document.getElementById('searchInput').focus(); renderSearchDefault(); }
+  else if (tab==='ext') { document.getElementById('extLinkInput').focus(); renderExt(); }
+}
+
+function renderSearchDefault() {
+  document.getElementById('content').innerHTML = '<div class="empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" opacity="0.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><br>输入歌名、歌手或编号搜索</div>';
+}
+
+async function loadFeatured() { try { featured = await api('/api/featured'); } catch(e) { featured = []; } renderFeatured(); }
+function renderFeatured() {
+  const el = document.getElementById('content');
+  if (!featured.length) { el.innerHTML = '<div class="empty"><div class="icon">📡</div>正在连接曲库…</div>'; return; }
+  el.innerHTML = '<div class="section-header">🔥 热门推荐</div>' + featured.map((s,i) => songHtml(s,i+1)).join('');
+  bindAdds();
+}
+function songHtml(s, idx) {
+  return `<div class="song-card" data-id="${s.id}"><div class="idx">${String(idx).padStart(2,'0')}</div><div class="info"><div class="stitle">${s.title}</div><div class="sartist">${s.artist}</div><div class="smeta">${s.category||''} · ${s.code||''}</div></div><button class="bump-btn" data-id="${s.id}" title="顶到下一首">↑</button><button class="add-btn" data-id="${s.id}">点歌</button></div>`;
+}
+function bindAdds() {
+  document.querySelectorAll('.add-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); addToQueue(b.dataset.id); }));
+  document.querySelectorAll('.bump-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); bumpSong(b.dataset.id); }));
+  document.querySelectorAll('.song-card').forEach(c => c.addEventListener('click', () => addToQueue(c.dataset.id)));
+}
+
+async function doSearch() {
+  const q = document.getElementById('searchInput').value.trim(); if (!q) return;
+  try {
+    const r = await api('/api/search?q='+encodeURIComponent(q));
+    const el = document.getElementById('content');
+    if (!r.length) { el.innerHTML = `<div class="empty"><div class="icon">😕</div>没有找到 "${q}"</div>`; return; }
+    el.innerHTML = `<div class="section-header">${r.length} 首</div>` + r.map((s,i) => songHtml(s,i+1)).join('');
+    bindAdds();
+  } catch(e) { toast('搜索失败','warn'); }
+}
+
+function renderExt() {
+  document.getElementById('content').innerHTML = '<div class="section-header">🔗 外链点歌</div><div style="padding:16px;color:var(--muted);font-size:13px;font-weight:600;line-height:1.6">支持 B站 bilibili.com/video/BV... 或 BV 号<br>解析后自动加入队列</div>';
+}
+let resolveData = null;
+
+async function doResolve() {
+  const input = document.getElementById('extLinkInput').value.trim(), st = document.getElementById('extStatus');
+  if (!input) return; st.style.display='block'; st.textContent='⏳ 解析中...'; st.style.color='var(--amber)';
+  try {
+    const r = await api('/api/resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:input})});
+    resolveData = {url: input, pages: r.pages, bvid: r.bvid, selected: r.selectedPage};
+    document.getElementById('extLinkInput').value = '';
+    showPageSelector(r);
+    st.style.display='none';
+  } catch(e) { st.textContent = '❌ 解析失败，请检查链接'; st.style.color = 'var(--red)'; setTimeout(()=>st.style.display='none',3000); }
+}
+
+function showPageSelector(r) {
+  const el = document.getElementById('content');
+  const pages = r.pages || [];
+  const sel = r.selectedPage || 1;
+  const coverHtml = r.coverUrl
+    ? '<img src="/api/cover?url=' + encodeURIComponent(r.coverUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display=\'none\'">'
+    : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8.5" cy="8.5" r="2"/><path d="M2 16l5-5 4 4 3-3 8 6v4H2z"/></svg>';
+  el.innerHTML = '<div class="section-header">🔗 外链点歌</div>' +
+    '<div style="padding:14px">' +
+      '<div style="display:flex;gap:14px;margin-bottom:14px">' +
+        '<div style="width:120px;aspect-ratio:16/10;flex-shrink:0;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden">' + coverHtml + '</div>' +
+        '<div style="flex:1;min-width:0">' +
+          '<div style="font-size:16px;font-weight:800;line-height:1.3;margin-bottom:6px;color:var(--cream)">' + r.title + '</div>' +
+          '<div style="font-size:13px;color:var(--muted);font-weight:600">UP：' + (r.ownerName||'未知') + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);margin-top:3px">共 ' + pages.length + ' 个分P</div>' +
+        '</div>' +
+      '</div>' +
+      '<div style="height:1px;background:var(--line);margin-bottom:10px"></div>' +
+      '<div style="font-size:11px;font-weight:800;color:var(--muted);margin-bottom:6px">选择分P</div>' +
+      pages.map(p => '<div class="song-card" data-page="' + p.page + '" style="' + (p.page===sel?'background:var(--surface)':'') + ';border-radius:8px;margin-bottom:2px">' +
+        '<div class="idx" style="background:' + (p.page===sel?'var(--teal)':'var(--surface2)') + ';color:' + (p.page===sel?'#111216':'var(--amber)') + '">P' + p.page + '</div>' +
+        '<div class="info"><div class="stitle">' + p.title + '</div><div class="smeta">' + fmtTime(p.duration) + '</div></div>' +
+        '<button class="bump-btn" data-page="' + p.page + '" title="顶到下一首">↑</button>' +
+        '<button class="add-btn" data-page="' + p.page + '">点歌</button></div>').join('') +
+    '</div>';
+  document.querySelectorAll('.add-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); addPage(parseInt(b.dataset.page)); }));
+  document.querySelectorAll('.bump-btn').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); addPage(parseInt(b.dataset.page), true); }));
+  document.querySelectorAll('.song-card').forEach(c => c.addEventListener('click', () => addPage(parseInt(c.dataset.page))));
+}
+
+async function addPage(page, bump) {
+  if (!resolveData) return;
+  const st = document.getElementById('extStatus');
+  st.style.display='block'; st.textContent = bump ? '⏳ 顶歌中...' : '⏳ 解析分P中...'; st.style.color='var(--amber)';
+  try {
+    const r = await api('/api/resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:resolveData.url, page})});
+    toast(bump ? '已顶到下一首：' + r.title : '已加入：' + r.title);
+    if (bump && r.queueId) await bumpToNext(r.queueId);
+    resolveData = null;
+    await pollState(); renderFeatured();
+    st.textContent = '✅ ' + r.title; st.style.color = 'var(--teal)';
+  } catch(e) { st.textContent = '❌ 解析失败'; st.style.color = 'var(--red)'; }
+  setTimeout(()=>st.style.display='none',3000);
+}
+
+async function addToQueue(songId) {
+  try { const r = await api('/api/queue', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({songId})}); toast('已加入队列'); await pollState(); renderFeatured(); return r; } catch(e) { toast('点歌失败','warn'); return null; }
+}
+async function bumpSong(songId) {
+  const r = await addToQueue(songId);
+  if (r && r.queueId) await bumpToNext(r.queueId);
+}
+async function removeFromQueue(id) { try { await api('/api/queue/'+id, {method:'DELETE'}); await pollState(); } catch(e) {} }
+async function bumpToNext(id) { try { await api('/api/queue/bump/'+id, {method:'POST'}); toast('已顶到下一首'); await pollState(); } catch(e) {} }
+
+async function doTogglePlay() { try { await api(playback.isPlaying?'/api/playback/pause':'/api/playback/play', {method:'POST'}); await pollState(); } catch(e) {} }
+async function doNext() { try { await api('/api/playback/next', {method:'POST'}); ctime=0; await pollState(); } catch(e) {} }
+async function doToggleTrack() {
+  try { const r = await api('/api/playback/track', {method:'POST'});
+    playback.track = r.track;
+    renderTrackButton();
+    toast(playback.track==='accompaniment'?'已切换为伴奏':'已切换为原唱'); } catch(e) {}
+}
+// 原唱/伴奏按钮：统一用 innerHTML 渲染完整 SVG，避免 textContent 覆盖成 emoji
+function renderTrackButton() {
+  const isVocal = playback.track!=='accompaniment';
+  document.getElementById('qpTrack').innerHTML = isVocal
+    ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M3 20c0-4 4-6 8-6s8 2 8 6"/><path d="M18 3l3.5-1V9l-3.5 1z" fill="currentColor" stroke="none"/><circle cx="17" cy="9.5" r="1.8" fill="currentColor" stroke="none"/></svg>'
+    : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>';
+}
+async function doVolume(delta) { playback.volume = Math.max(0, Math.min(100, playback.volume + delta)); document.getElementById('qpVolLabel').textContent = playback.volume; try { await api('/api/playback/volume', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:playback.volume})}); } catch(e) {} }
+async function doKey(delta) { playback.key = Math.max(-6, Math.min(6, playback.key + delta)); updateKeyUI(); try { await api('/api/playback/key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({delta})}); } catch(e) {} }
+// label 显示 key 数字（+1 表示升 1 key）；−/+ 按钮分别用 ♭ / ♯ 符号
+function updateKeyUI() {
+  const k = playback.key;
+  document.getElementById('qpKeyLabel').textContent = (k>0?'+':'')+k;
+}
+
+function openQueue() { document.getElementById('queuePanel').classList.add('open'); document.getElementById('qpBackdrop').classList.add('open'); }
+function closeQueue() { document.getElementById('queuePanel').classList.remove('open'); document.getElementById('qpBackdrop').classList.remove('open'); }
+function updateQueueList() {
+  const el = document.getElementById('qpBody');
+  if (!queueData.upcoming.length) { el.innerHTML = '<div class="empty" style="padding:24px"><div class="icon">📋</div>队列为空，去点一首歌吧</div>'; return; }
+  el.innerHTML = queueData.upcoming.map((q,i) => `<div class="queue-card"><div class="qidx">${String(i+1).padStart(2,'0')}</div><div class="qinfo"><div class="qtitle">${q.title}</div><div class="qartist">${q.artist||''}</div></div><div style="display:flex;gap:4px"><button class="qbtn" onclick="bumpToNext('${q.id}')">↑</button><button class="qbtn danger" onclick="removeFromQueue('${q.id}')">✕</button></div></div>`).join('');
+}
+
+function toast(msg, type) { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(type==='warn'?' warn':''); clearTimeout(t._tid); t._tid=setTimeout(()=>t.classList.remove('show'),1800); }
+function fmtTime(s) { const m=Math.floor(s/60), sec=s%60; return `${m}:${String(sec).padStart(2,'0')}`; }
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+load("//:build_defs.bzl", "mozc_cc_binary")
+
+# Append this target to Mozc's upstream src/session/BUILD.bazel. Mozc keeps
+# //session:session and //engine:engine_factory private to its own packages, so
+# this target is intentionally built inside the upstream session package.
+mozc_cc_binary(
+    name = "kirakara_mozc_bridge",
+    srcs = ["kirakara_mozc_bridge.cc"],
+    copts = ["$(STACK_FRAME_UNLIMITED)"],
+    tags = ["noandroid"],
+    deps = [
+        ":session",
+        "//base:init_mozc",
+        "//composer",
+        "//composer:key_parser",
+        "//engine:engine_factory",
+        "//engine:engine_interface",
+        "//protocol:candidate_window_cc_proto",
+        "//protocol:commands_cc_proto",
+        "@com_google_absl//absl/log",
+    ],
+)

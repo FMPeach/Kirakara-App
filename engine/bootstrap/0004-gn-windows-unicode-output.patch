@@ -1,0 +1,91 @@
+diff --git a/src/gn/ninja_toolchain_writer.cc b/src/gn/ninja_toolchain_writer.cc
+index 917d068..faacea6 100644
+--- a/src/gn/ninja_toolchain_writer.cc
++++ b/src/gn/ninja_toolchain_writer.cc
+@@ -4,7 +4,7 @@
+ 
+ #include "gn/ninja_toolchain_writer.h"
+ 
+-#include <fstream>
++#include <sstream>
+ 
+ #include "base/files/file_util.h"
+ #include "base/strings/stringize_macros.h"
+@@ -20,6 +20,7 @@
+ #include "gn/target.h"
+ #include "gn/toolchain.h"
+ #include "gn/trace.h"
++#include "util/atomic_write.h"
+ 
+ namespace {
+ 
+@@ -68,15 +69,13 @@ bool NinjaToolchainWriter::RunAndWriteFile(
+ 
+   base::CreateDirectory(ninja_file.DirName());
+ 
+-  std::ofstream file;
+-  file.open(FilePathToUTF8(ninja_file).c_str(),
+-            std::ios_base::out | std::ios_base::binary);
+-  if (file.fail())
+-    return false;
+-
++  std::ostringstream file;
+   NinjaToolchainWriter gen(settings, toolchain, file);
+   gen.Run(rules);
+-  return true;
++  const std::string contents = file.str();
++  return util::WriteFileAtomically(ninja_file, contents.data(),
++                                   static_cast<int>(contents.size())) ==
++         static_cast<int>(contents.size());
+ }
+ 
+ void NinjaToolchainWriter::WriteToolRule(Tool* tool,
+diff --git a/src/gn/setup.cc b/src/gn/setup.cc
+index 4f0fa51..eedf572 100644
+--- a/src/gn/setup.cc
++++ b/src/gn/setup.cc
+@@ -795,6 +795,8 @@ bool Setup::FillBuildDir(const std::string& build_dir,
+ // This is currently a NOP on other platforms.
+ base::FilePath ProcessFileExtensions(base::FilePath script_executable) {
+ #if defined(OS_WIN)
++  const bool was_relative = !script_executable.IsAbsolute();
++  base::FilePath requested_executable;
+   // If we have a relative path with no extension such as "python" or
+   // "python3" then do a path search on the name with .exe and .bat appended.
+   auto extension = script_executable.FinalExtension();
+@@ -806,19 +808,34 @@ base::FilePath ProcessFileExtensions(base::FilePath script_executable) {
+     if (extension == u"") {
+       // If no extension is specified then search the path for .exe and .bat
+       // variants.
++      requested_executable = script_executable.ReplaceExtension(u".exe");
+       script_executable =
+-          FindWindowsPython(script_executable.ReplaceExtension(u".exe"),
++          FindWindowsPython(requested_executable,
+                             script_executable.ReplaceExtension(u".bat"));
+     } else if (extension == u".bat") {
+       // Search the path just for the specified .bat.
++      requested_executable = script_executable.ReplaceExtension(u".exe");
+       script_executable =
+           FindWindowsPython(base::FilePath(), script_executable);
+     } else if (extension == u".exe") {
+       // Search the path just for the specified .exe.
++      requested_executable = script_executable;
+       script_executable =
+           FindWindowsPython(script_executable, base::FilePath());
+     }
+   }
++  // Ninja's Windows process launcher cannot execute an absolute UTF-8 path
++  // through the narrow command line it receives from a generated build file.
++  // When PATH supplied the exact executable requested by the dotfile, retain
++  // that ASCII relative name after validating it instead of embedding the
++  // Unicode checkout path. Both GN and Ninja will resolve it from PATH.
++  if (was_relative && !requested_executable.empty() &&
++      script_executable.BaseName().value() == requested_executable.value() &&
++      std::any_of(script_executable.value().begin(),
++                  script_executable.value().end(),
++                  [](char16_t value) { return value > 0x7f; })) {
++    script_executable = requested_executable;
++  }
+   script_executable = script_executable.NormalizePathSeparatorsTo('/');
+ #endif
+   return script_executable;

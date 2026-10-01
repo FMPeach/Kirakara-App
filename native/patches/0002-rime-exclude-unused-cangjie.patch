@@ -1,0 +1,12 @@
+diff --git a/default.yaml b/default.yaml
+--- a/default.yaml
++++ b/default.yaml
+@@ -9,8 +9,7 @@ schema_list:
+   - schema: luna_pinyin_fluency
+   - schema: bopomofo
+   - schema: bopomofo_tw
+-  - schema: cangjie5
+   - schema: stroke
+   - schema: terra_pinyin
+ 
+ switcher:

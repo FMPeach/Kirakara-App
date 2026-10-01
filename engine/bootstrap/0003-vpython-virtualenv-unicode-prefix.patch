@@ -1,0 +1,16 @@
+diff --git a/virtualenv.py b/virtualenv.py
+--- a/virtualenv.py
++++ b/virtualenv.py
+@@ -2335,6 +2335,11 @@
+ W9QaQroM1UwOGYPCH3K4MUA6xYwZ+cZj7VRYQxH8Pz99ANE=
+ """
+ )
+ 
++SITE_PY = SITE_PY.replace(
++    'f = open(os.path.join(os.path.dirname(__file__), "orig-prefix.txt"))',
++    'f = open(os.path.join(os.path.dirname(__file__), "orig-prefix.txt"), encoding="utf-8")',
++)
++
+ # file activate.sh
+ ACTIVATE_SH = convert(
+     """

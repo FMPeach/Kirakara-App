@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "packageFormatVersion": 2,
+  "target": "windows-x64",
+  "status": "整理阶段：正式 Release 尚未配置；禁止隐式源码构建",
+  "imeRuntime": null
+}

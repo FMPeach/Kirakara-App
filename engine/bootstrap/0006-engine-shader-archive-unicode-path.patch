@@ -1,0 +1,40 @@
+diff --git a/engine/src/flutter/impeller/shader_archive/shader_archive_main.cc b/engine/src/flutter/impeller/shader_archive/shader_archive_main.cc
+index acf5d025de..a97d43636c 100644
+--- a/engine/src/flutter/impeller/shader_archive/shader_archive_main.cc
++++ b/engine/src/flutter/impeller/shader_archive/shader_archive_main.cc
+@@ -10,6 +10,15 @@
+ 
+ namespace impeller {
+ 
++namespace {
++
++std::string PathToUtf8(const std::filesystem::path& path) {
++  const auto utf8 = path.u8string();
++  return {reinterpret_cast<const char*>(utf8.data()), utf8.size()};
++}
++
++}  // namespace
++
+ bool Main(const fml::CommandLine& command_line) {
+   ShaderArchiveWriter writer;
+ 
+@@ -37,12 +46,13 @@ bool Main(const fml::CommandLine& command_line) {
+     return false;
+   }
+ 
+-  auto current_directory =
+-      fml::OpenDirectory(std::filesystem::current_path().string().c_str(),
+-                         false, fml::FilePermission::kReadWrite);
+-  auto output_path =
+-      std::filesystem::absolute(std::filesystem::current_path() / output);
+-  if (!fml::WriteAtomically(current_directory, output_path.string().c_str(),
++  const auto current_path = std::filesystem::current_path();
++  const auto current_path_utf8 = PathToUtf8(current_path);
++  auto current_directory = fml::OpenDirectory(
++      current_path_utf8.c_str(), false, fml::FilePermission::kReadWrite);
++  const auto output_path = std::filesystem::absolute(current_path / output);
++  const auto output_path_utf8 = PathToUtf8(output_path);
++  if (!fml::WriteAtomically(current_directory, output_path_utf8.c_str(),
+                             *archive)) {
+     std::cerr << "Could not write shader archive to path " << output
+               << std::endl;
