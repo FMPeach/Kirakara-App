@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module (Join-Path $script:RepositoryRoot `
@@ -44,7 +44,7 @@ function Assert-RepositoryFileRecord {
 
 function Get-NativeRuntimeIdentity {
   $native = Get-Content -Raw -LiteralPath (
-    Join-Path $script:RepositoryRoot 'native/native.lock.json') |
+    Join-Path $script:RepositoryRoot 'native/native.lock.json') -Encoding utf8 |
     ConvertFrom-Json
   if ($native.schemaVersion -ne 1 -or $native.target -cne 'windows-x64' -or
       $native.imeRuntime.packageFormatVersion -ne 2 -or
@@ -193,7 +193,8 @@ function Get-NativeRuntimeEntry {
     $LockPath = Join-Path $script:RepositoryRoot 'native/prebuilt.lock.json'
   }
   [Kirakara.Artifacts.Security]::NoReparse($LockPath)
-  $lock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
+  $lock = Get-Content -Raw -LiteralPath $LockPath -Encoding utf8 |
+    ConvertFrom-Json
   if ($lock.schemaVersion -ne 1 -or $lock.packageFormatVersion -ne 2 -or
       $lock.target -cne 'windows-x64') {
     throw 'IME 原生运行包预编译锁格式不受支持。'
@@ -220,7 +221,7 @@ function Get-NativeRuntimeAbsolutePaths {
     '\\\\[a-z0-9._$ -]+\\[a-z0-9._$ -]+' +
     '(?:\\[^\\\x00-\x1f<>:"|?*]{1,160})+)'
   foreach ($text in @(
-      [Text.Encoding]::Latin1.GetString($bytes),
+      [Text.Encoding]::GetEncoding(28591).GetString($bytes),
       [Text.Encoding]::Unicode.GetString($bytes))) {
     foreach ($match in [regex]::Matches($text, $pattern)) {
       $null = $matches.Add($match.Value)
@@ -236,7 +237,7 @@ function Assert-NativeRuntimeHostPaths {
   )
   $bytes = [IO.File]::ReadAllBytes($Path)
   $texts = @(
-    [Text.Encoding]::Latin1.GetString($bytes),
+    [Text.Encoding]::GetEncoding(28591).GetString($bytes),
     [Text.Encoding]::Unicode.GetString($bytes))
   $hostTokens = @(
     $script:RepositoryRoot,
@@ -315,7 +316,8 @@ function Assert-ZinniaLibraryContract {
       @($machines | Where-Object { $_ -ne 0x8664 }).Count -ne 0) {
     throw "Zinnia $Configuration 静态库不是八成员 Windows x64 COFF archive。"
   }
-  $ascii = [Text.Encoding]::Latin1.GetString([IO.File]::ReadAllBytes($Path))
+  $ascii = [Text.Encoding]::GetEncoding(28591).GetString(
+    [IO.File]::ReadAllBytes($Path))
   if ($Configuration -ceq 'Debug') {
     if (-not $ascii.Contains('RuntimeLibrary=MDd_DynamicDebug') -or
         $ascii -notmatch '(?i)/DEFAULTLIB:"?MSVCRTD"?' -or
@@ -342,17 +344,18 @@ function Invoke-NativeRuntimeMozcProbe {
     $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
-    foreach ($argument in @('compose', 'nihongo', '0', '25')) {
-      $start.ArgumentList.Add($argument)
-    }
+    Set-KirakaraProcessArguments `
+      -StartInfo $start `
+      -Arguments @('compose', 'nihongo', '0', '25')
     foreach ($name in @('APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP')) {
-      $start.Environment[$name] = $scratch
+      Set-KirakaraProcessEnvironmentValue `
+        -StartInfo $start -Name $name -Value $scratch
     }
     $process = [Diagnostics.Process]::Start($start)
     $stdout = $process.StandardOutput.ReadToEndAsync()
     $stderr = $process.StandardError.ReadToEndAsync()
     if (-not $process.WaitForExit(30000)) {
-      $process.Kill($true)
+      Stop-KirakaraProcessTree -Process $process
       $process.WaitForExit()
       throw 'Mozc 候选运行库调用超时。'
     }
@@ -405,7 +408,8 @@ function Assert-NativeRuntimeDirectory {
   }
   $actualFiles = @(Get-ChildItem -LiteralPath $RuntimeRoot -Recurse -File |
       ForEach-Object {
-        [IO.Path]::GetRelativePath($RuntimeRoot, $_.FullName).Replace('\', '/')
+        (Get-KirakaraRelativePath `
+          -BasePath $RuntimeRoot -Path $_.FullName).Replace('\', '/')
       } | Sort-Object)
   $expectedFiles = @($relative.Values | Sort-Object)
   if ($actualFiles.Count -ne $expectedFiles.Count -or
@@ -437,7 +441,7 @@ function Assert-NativeRuntimeDirectory {
   Assert-ArtifactFile $paths.zinniaRelease $identity.zinnia.releaseLibrary
   Assert-ArtifactFile $paths.zinniaProvenance $identity.zinnia.provenance
 
-  $provenance = Get-Content -Raw -LiteralPath $paths.provenance |
+  $provenance = Get-Content -Raw -LiteralPath $paths.provenance -Encoding utf8 |
     ConvertFrom-Json
   if ($provenance.schemaVersion -ne 2 -or
       $provenance.kind -cne 'ime-runtime' -or
@@ -509,7 +513,8 @@ function Assert-NativeRuntimeContents {
     }
   }
   $sourcesPath = [Kirakara.Artifacts.Security]::Child($Root, 'SOURCES.json')
-  $sources = Get-Content -Raw -LiteralPath $sourcesPath | ConvertFrom-Json
+  $sources = Get-Content -Raw -LiteralPath $sourcesPath -Encoding utf8 |
+    ConvertFrom-Json
   if ((Get-ArtifactTextHash (
         $sources | ConvertTo-Json -Depth 20 -Compress)) -cne
       $Expected.value) {
@@ -534,7 +539,8 @@ function Get-NativeRuntimeSelectedRecord {
     '.kfe/state/ime-runtime-selection.json'
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
   [Kirakara.Artifacts.Security]::NoReparse($path)
-  $selection = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+  $selection = Get-Content -Raw -LiteralPath $path -Encoding utf8 |
+    ConvertFrom-Json
   if ($selection.schemaVersion -ne 2 -or
       $selection.kind -cne 'prebuilt' -or
       $selection.identityHash -cne $Expected.value -or

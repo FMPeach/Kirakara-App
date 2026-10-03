@@ -1,10 +1,11 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module (Join-Path $script:RepositoryRoot 'engine/scripts/artifact_package.psm1') -DisableNameChecking
 
 function Get-RimeDataIdentity {
-  $lock = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'third_party/data.lock.json') | ConvertFrom-Json
+  $lock = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'third_party/data.lock.json') -Encoding utf8 |
+    ConvertFrom-Json
   $data = $lock.rime
   if ($lock.schemaVersion -ne 1 -or -not $data.sourceInventoryVerified -or @($data.sources).Count -ne 20) {
     throw 'Rime 必要数据的精确来源清单尚未通过。'
@@ -25,8 +26,10 @@ function Get-RimeDataIdentity {
   if ((Get-ArtifactHash $patch) -cne $data.runtimeModification.sha256 -or
       $data.runtimeModification.resultFile.path -cne 'default.yaml') { throw 'Rime 独立配置补丁契约不匹配。' }
   $openccPath = [Kirakara.Artifacts.Security]::Child($script:RepositoryRoot,[string]$data.openccLock)
-  $opencc = Get-Content -Raw -LiteralPath $openccPath | ConvertFrom-Json
-  $native = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'native/native.lock.json') | ConvertFrom-Json
+  $opencc = Get-Content -Raw -LiteralPath $openccPath -Encoding utf8 |
+    ConvertFrom-Json
+  $native = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'native/native.lock.json') -Encoding utf8 |
+    ConvertFrom-Json
   if ($opencc.schemaVersion -ne 1 -or $opencc.license -cne 'Apache-2.0' -or
       $opencc.revision -cne $native.librime.submodules.'deps/opencc' -or @($opencc.runtimeFiles).Count -ne 30) {
     throw 'OpenCC 数据与固定 librime 构建来源不匹配。'
@@ -60,7 +63,8 @@ function Get-RimeDataEntry {
   if ([string]::IsNullOrWhiteSpace($LockPath)) { $LockPath=$env:KIRAKARA_RIME_DATA_LOCK }
   if ([string]::IsNullOrWhiteSpace($LockPath)) { $LockPath=Join-Path $script:RepositoryRoot 'third_party/data.lock.json' }
   [Kirakara.Artifacts.Security]::NoReparse($LockPath)
-  $lock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
+  $lock = Get-Content -Raw -LiteralPath $LockPath -Encoding utf8 |
+    ConvertFrom-Json
   if ($lock.schemaVersion -ne 1) { throw 'Rime 数据包锁格式不受支持。' }
   $entry = $lock.rime.dataPackage
   $expected = Get-RimeDataIdentity
@@ -107,7 +111,7 @@ function Assert-RimeDataContents {
     }
   }
   $null=$required.Add('SOURCES.json')
-  $sources=Get-Content -Raw -LiteralPath (Join-Path $Root 'SOURCES.json') | ConvertFrom-Json
+  $sources=Get-Content -Raw -LiteralPath (Join-Path $Root 'SOURCES.json') -Encoding utf8|ConvertFrom-Json
   if ((Get-ArtifactTextHash ($sources | ConvertTo-Json -Depth 16 -Compress)) -cne $Expected.value) {
     throw 'Rime 数据包来源清单不匹配。'
   }
@@ -122,7 +126,7 @@ function Get-RimeDataSelectedEntry {
   $path=Join-Path $script:RepositoryRoot '.kfe/state/rime-data-selection.json'
   if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return $null }
   [Kirakara.Artifacts.Security]::NoReparse($path)
-  $selection=Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+  $selection=Get-Content -Raw -LiteralPath $path -Encoding utf8|ConvertFrom-Json
   $schemaVersion=$selection.PSObject.Properties['schemaVersion']
   if ($null -eq $schemaVersion -or $schemaVersion.Value -ne 1 -or
       $selection.kind -cne 'rime-data' -or
@@ -194,8 +198,10 @@ function Read-RimeSourceBlob {
   $start=[Diagnostics.ProcessStartInfo]::new('git')
   $start.UseShellExecute=$false; $start.CreateNoWindow=$true
   $start.RedirectStandardOutput=$true; $start.RedirectStandardError=$true
-  if ($NoLazyFetch) { $start.ArgumentList.Add('--no-lazy-fetch') }
-  foreach ($argument in @('-C',$Repository,'show',"${Revision}:$Path")) { $start.ArgumentList.Add($argument) }
+  $arguments = @()
+  if ($NoLazyFetch) { $arguments += '--no-lazy-fetch' }
+  $arguments += @('-C',$Repository,'show',"${Revision}:$Path")
+  Set-KirakaraProcessArguments -StartInfo $start -Arguments $arguments
   $process=[Diagnostics.Process]::Start($start)
   $memory=[IO.MemoryStream]::new()
   try {

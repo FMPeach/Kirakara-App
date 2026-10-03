@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 . (Join-Path $PSScriptRoot 'common.ps1')
@@ -260,7 +260,7 @@ function Assert-KirakaraPinnedFlutterSdk {
   if (-not (Test-Path -LiteralPath $engineVersionPath -PathType Leaf)) {
     throw "Flutter SDK is missing engine.version: $engineVersionPath"
   }
-  $engineRevision = (Get-Content -Raw -LiteralPath $engineVersionPath).Trim()
+  $engineRevision = (Get-Content -Raw -LiteralPath $engineVersionPath -Encoding utf8).Trim()
   if ($engineRevision -ne [string]$Lock.flutter.engineRevision) {
     throw "Flutter SDK Engine revision mismatch at '$root'. Expected $($Lock.flutter.engineRevision), got $engineRevision."
   }
@@ -447,7 +447,10 @@ function Assert-KirakaraBootstrapPreflight {
     [string]$WindowsSdkPath = 'C:\Program Files (x86)\Windows Kits\10'
   )
 
-  foreach ($command in @('git', 'pwsh')) {
+  if ($PSVersionTable.PSVersion -lt [Version]'5.1') {
+    throw 'Kirakara flutterw requires Windows PowerShell 5.1 or newer.'
+  }
+  foreach ($command in @('git')) {
     if (-not (Get-Command $command -ErrorAction SilentlyContinue)) {
       throw "Required command is missing from PATH: $command"
     }
@@ -603,6 +606,7 @@ function Get-KirakaraBootstrapFingerprint {
   foreach ($path in @(
       'engine/include/kirakara_flutter_compositor_api.h',
       'engine/scripts/common.ps1',
+      'engine/scripts/powershell_compat.ps1',
       'engine/scripts/fetch_engine.ps1',
       'engine/scripts/apply_patches.ps1',
       'engine/scripts/build_windows_engine.ps1',
@@ -790,8 +794,9 @@ function Repair-KirakaraVpythonVirtualenv {
   }
 
   $targetDirectory = Split-Path -Parent $target
-  $relativeDirectory = [IO.Path]::GetRelativePath(
-    $script:RepositoryRoot, $targetDirectory).Replace('\', '/')
+  $relativeDirectory = (Get-KirakaraRelativePath `
+    -BasePath $script:RepositoryRoot `
+    -Path $targetDirectory).Replace('\', '/')
   if ($relativeDirectory.StartsWith('../') -or
       [IO.Path]::IsPathRooted($relativeDirectory)) {
     throw "Refusing to patch vpython outside the App repository: $target"
@@ -1073,16 +1078,17 @@ function Invoke-KirakaraLoggedProcess {
 
   $startInfo = [Diagnostics.ProcessStartInfo]::new()
   $startInfo.FileName = $FilePath
-  foreach ($argument in $Arguments) {
-    $startInfo.ArgumentList.Add($argument)
-  }
+  Set-KirakaraProcessArguments -StartInfo $startInfo -Arguments $Arguments
   $startInfo.WorkingDirectory = $WorkingDirectory
   $startInfo.UseShellExecute = $false
   $startInfo.CreateNoWindow = $true
   $startInfo.RedirectStandardOutput = $true
   $startInfo.RedirectStandardError = $true
   foreach ($entry in $Environment.GetEnumerator()) {
-    $startInfo.Environment[[string]$entry.Key] = [string]$entry.Value
+    Set-KirakaraProcessEnvironmentValue `
+      -StartInfo $startInfo `
+      -Name ([string]$entry.Key) `
+      -Value ([string]$entry.Value)
   }
   $process = [Diagnostics.Process]::new()
   $process.StartInfo = $startInfo
@@ -1095,7 +1101,7 @@ function Invoke-KirakaraLoggedProcess {
     $stderrTask = $process.StandardError.ReadToEndAsync()
     $completed = $process.WaitForExit($TimeoutSeconds * 1000)
     if (-not $completed) {
-      $process.Kill($true)
+      Stop-KirakaraProcessTree -Process $process
     }
     $process.WaitForExit()
     $stdout = $stdoutTask.GetAwaiter().GetResult()
@@ -1139,7 +1145,8 @@ function Test-KirakaraGnReadyStamp {
     return [pscustomobject]@{ ready = $false; reason = 'GN ready stamp is missing' }
   }
   try {
-    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp | ConvertFrom-Json
+    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp -Encoding utf8 |
+      ConvertFrom-Json
     if ($stamp.schemaVersion -ne 1) {
       throw "unsupported GN ready stamp schema $($stamp.schemaVersion)"
     }
@@ -1205,21 +1212,21 @@ function Write-KirakaraGnReadyStamp {
     generatedAt = (Get-Date).ToUniversalTime().ToString('o')
     fingerprint = $Fingerprint.value
     fingerprintInputs = $Fingerprint.inputs
-    binaryPath = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Binary).Replace('\', '/')
+    binaryPath = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Binary).Replace('\', '/')
     binarySize = [long]$binaryItem.Length
     binarySha256 = (Get-FileHash -LiteralPath $Binary -Algorithm SHA256).Hash
     unitTestCount = $UnitTestCount
     buildDurationMilliseconds = [long]$BuildResult.durationMilliseconds
     testDurationMilliseconds = [long]$TestResult.durationMilliseconds
-    buildStdout = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.buildStdout).Replace('\', '/')
-    buildStderr = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.buildStderr).Replace('\', '/')
-    testStdout = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.testStdout).Replace('\', '/')
-    testStderr = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.testStderr).Replace('\', '/')
+    buildStdout = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.buildStdout).Replace('\', '/')
+    buildStderr = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.buildStderr).Replace('\', '/')
+    testStdout = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.testStdout).Replace('\', '/')
+    testStderr = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.testStderr).Replace('\', '/')
   }
   New-Item -ItemType Directory -Path $Layout.State -Force | Out-Null
   $temporary = Join-Path $Layout.State (
@@ -1445,7 +1452,8 @@ function Get-KirakaraPriorGnHash {
     return $null
   }
   try {
-    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp | ConvertFrom-Json
+    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp -Encoding utf8 |
+      ConvertFrom-Json
     if ($stamp.schemaVersion -ne 1 -or
         [string]$stamp.binarySha256 -notmatch '^[0-9A-F]{64}$') {
       return $null
@@ -1793,7 +1801,8 @@ function Test-KirakaraNinjaReadyStamp {
     return [pscustomobject]@{ ready = $false; reason = 'Ninja ready stamp is missing' }
   }
   try {
-    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp | ConvertFrom-Json
+    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp -Encoding utf8 |
+      ConvertFrom-Json
     if ($stamp.schemaVersion -ne 1) {
       throw "unsupported Ninja ready stamp schema $($stamp.schemaVersion)"
     }
@@ -1869,22 +1878,22 @@ function Write-KirakaraNinjaReadyStamp {
     generatedAt = (Get-Date).ToUniversalTime().ToString('o')
     fingerprint = $Fingerprint.value
     fingerprintInputs = $Fingerprint.inputs
-    binaryPath = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Binary).Replace('\', '/')
+    binaryPath = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Binary).Replace('\', '/')
     binarySize = [long]$binaryItem.Length
     binarySha256 = (Get-FileHash -LiteralPath $Binary -Algorithm SHA256).Hash
     version = $Version
     unitTestCount = $UnitTestCount
     buildDurationMilliseconds = [long]$BuildResult.durationMilliseconds
     testDurationMilliseconds = [long]$TestResult.durationMilliseconds
-    buildStdout = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.buildStdout).Replace('\', '/')
-    buildStderr = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.buildStderr).Replace('\', '/')
-    testStdout = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.testStdout).Replace('\', '/')
-    testStderr = [IO.Path]::GetRelativePath(
-      $Layout.Root, $Logs.testStderr).Replace('\', '/')
+    buildStdout = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.buildStdout).Replace('\', '/')
+    buildStderr = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.buildStderr).Replace('\', '/')
+    testStdout = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.testStdout).Replace('\', '/')
+    testStderr = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $Logs.testStderr).Replace('\', '/')
   }
   New-Item -ItemType Directory -Path $Layout.State -Force | Out-Null
   $temporary = Join-Path $Layout.State (
@@ -2112,7 +2121,8 @@ function Get-KirakaraPriorNinjaHash {
     return $null
   }
   try {
-    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp | ConvertFrom-Json
+    $stamp = Get-Content -Raw -LiteralPath $Paths.readyStamp -Encoding utf8 |
+      ConvertFrom-Json
     if ($stamp.schemaVersion -ne 1 -or
         [string]$stamp.binarySha256 -notmatch '^[0-9A-F]{64}$') {
       return $null
@@ -2143,7 +2153,7 @@ function Assert-KirakaraNinjaDependencyPin {
   if (-not (Test-Path -LiteralPath $depsPath -PathType Leaf)) {
     throw "Engine DEPS file is missing while validating Ninja: $depsPath"
   }
-  $deps = Get-Content -Raw -LiteralPath $depsPath
+  $deps = Get-Content -Raw -LiteralPath $depsPath -Encoding utf8
   $packagePrefix = ([string]$Contract.cipdPackage) -replace '/windows-amd64$', ''
   if (-not $deps.Contains("'$packagePrefix/`${{platform}}'") -or
       -not $deps.Contains("'$([string]$Contract.cipdVersion)'")) {
@@ -2165,7 +2175,7 @@ function Assert-KirakaraNinjaDependencyPin {
       continue
     }
     try {
-      $description = Get-Content -Raw -LiteralPath $descriptionPath |
+      $description = Get-Content -Raw -LiteralPath $descriptionPath -Encoding utf8 |
         ConvertFrom-Json
     } catch {
       continue
@@ -2174,7 +2184,7 @@ function Assert-KirakaraNinjaDependencyPin {
         [string]$description.subdir -eq 'third_party/ninja') {
       $matches += [pscustomobject]@{
         directory = $directory.FullName
-        instance = (Get-Content -Raw -LiteralPath $currentPath).Trim()
+        instance = (Get-Content -Raw -LiteralPath $currentPath -Encoding utf8).Trim()
       }
     }
   }
@@ -2313,7 +2323,8 @@ function Test-KirakaraReadyStamp {
     return [pscustomobject]@{ ready = $false; reason = 'ready stamp is missing' }
   }
   try {
-    $stamp = Get-Content -Raw -LiteralPath $stampPath | ConvertFrom-Json
+    $stamp = Get-Content -Raw -LiteralPath $stampPath -Encoding utf8 |
+      ConvertFrom-Json
     if ($stamp.schemaVersion -ne 1) {
       throw "unsupported ready stamp schema $($stamp.schemaVersion)"
     }
@@ -2536,7 +2547,7 @@ function Write-KirakaraReadyStamp {
     [Parameter(Mandatory = $true)][string]$AbiReport
   )
 
-  $verification = Get-Content -Raw -LiteralPath $VerificationReport |
+  $verification = Get-Content -Raw -LiteralPath $VerificationReport -Encoding utf8 |
     ConvertFrom-Json
   $modeReport = @($verification.modes | Where-Object { $_.mode -eq $Mode })
   if ($modeReport.Count -ne 1) {
@@ -2559,10 +2570,10 @@ function Write-KirakaraReadyStamp {
     fingerprintInputs = $Fingerprint.inputs
     argsGnSha256 = [string]$modeReport[0].argsGnSha256
     artifacts = $artifacts
-    verificationReport = [IO.Path]::GetRelativePath(
-      $Layout.Root, $VerificationReport).Replace('\', '/')
-    abiReport = [IO.Path]::GetRelativePath(
-      $Layout.Root, $AbiReport).Replace('\', '/')
+    verificationReport = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $VerificationReport).Replace('\', '/')
+    abiReport = (Get-KirakaraRelativePath `
+      -BasePath $Layout.Root -Path $AbiReport).Replace('\', '/')
   }
   New-Item -ItemType Directory -Path $Layout.State -Force | Out-Null
   $destination = Get-KirakaraReadyStampPath -Layout $Layout -Mode $Mode
@@ -2601,7 +2612,7 @@ function Remove-KirakaraExpiredLogs {
     foreach ($stampPath in @(Get-ChildItem -LiteralPath $Layout.State `
         -Filter '*-ready.json' -File)) {
       try {
-        $stamp = Get-Content -Raw -LiteralPath $stampPath.FullName |
+        $stamp = Get-Content -Raw -LiteralPath $stampPath.FullName -Encoding utf8 |
           ConvertFrom-Json
         foreach ($property in @(
             'verificationReport',
@@ -2794,7 +2805,7 @@ function Get-KirakaraEngineStatus {
     if (Test-Path -LiteralPath $selectionFile -PathType Leaf) {
       try {
         [Kirakara.Artifacts.Security]::NoReparse($selectionFile)
-        $selection=Get-Content -Raw -LiteralPath $selectionFile | ConvertFrom-Json
+        $selection=Get-Content -Raw -LiteralPath $selectionFile -Encoding utf8|ConvertFrom-Json
         $schema=$selection.PSObject.Properties['schemaVersion']
         $selected=($null -ne $schema -and $schema.Value -eq 1 -and
           $selection.kind -ceq 'prebuilt' -and
@@ -2894,7 +2905,8 @@ function Get-KirakaraSelectedEngine {
   $identity = Get-PrebuiltEngineIdentity $Lock $Mode
   if (-not $ForcePrebuilt -and (Test-Path -LiteralPath $selectionFile -PathType Leaf)) {
     [Kirakara.Artifacts.Security]::NoReparse($selectionFile)
-    $selection = Get-Content -Raw -LiteralPath $selectionFile | ConvertFrom-Json
+    $selection = Get-Content -Raw -LiteralPath $selectionFile -Encoding utf8 |
+      ConvertFrom-Json
     $schemaVersion = $selection.PSObject.Properties['schemaVersion']
     if ($null -eq $schemaVersion -or $schemaVersion.Value -ne 1 -or
         $selection.identityHash -cne $identity.value) {

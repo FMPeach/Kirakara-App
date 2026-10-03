@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -24,7 +24,7 @@ function Get-KirakaraConfiguredShowHostPath {
   }
 
   try {
-    $configuration = Get-Content -Raw -LiteralPath $absoluteConfig |
+    $configuration = Get-Content -Raw -LiteralPath $absoluteConfig -Encoding utf8 |
       ConvertFrom-Json -ErrorAction Stop
   } catch {
     throw "Kirakara local configuration is invalid JSON: $absoluteConfig. $($_.Exception.Message)"

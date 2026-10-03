@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
   [string]$WorkspaceRoot,
@@ -100,9 +100,9 @@ try {
       # Windows path leaks the drive-colon into generated snapshot paths. Keep
       # the argument relative to the Engine src directory; the resulting
       # output still resolves to the repository-local .kfe/out tree.
-      $relativeOutputRoot = [IO.Path]::GetRelativePath(
-        $layout.EngineSource,
-        $layout.OutputRoot).Replace('\', '/')
+      $relativeOutputRoot = (Get-KirakaraRelativePath `
+        -BasePath $layout.EngineSource `
+        -Path $layout.OutputRoot).Replace('\', '/')
       $gnArguments += "--out-dir=$relativeOutputRoot"
     }
     Write-Host "Generating patched Windows Engine mode '$buildMode' as '$($build.localEngine)'..."

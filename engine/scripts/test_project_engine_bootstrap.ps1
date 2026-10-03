@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([string]$ReportPath)
 
 $ErrorActionPreference = 'Stop'
@@ -211,13 +211,88 @@ $toolchainEnvironmentRestore = [ordered]@{
   passed = $true
 }
 
+$compatibilityChecks = @()
+$relativeBase = Join-Path $repository 'build\diagnostics\PowerShell 兼容路径'
+$relativeTarget = Join-Path $relativeBase '子目录\文件.txt'
+Assert-Equal -Expected '.' `
+  -Actual (Get-KirakaraRelativePath -BasePath $relativeBase -Path $relativeBase) `
+  -Label 'PowerShell compatibility same-path relative path'
+Assert-Equal -Expected ('子目录' + [IO.Path]::DirectorySeparatorChar + '文件.txt') `
+  -Actual (Get-KirakaraRelativePath -BasePath $relativeBase -Path $relativeTarget) `
+  -Label 'PowerShell compatibility Unicode relative path'
+
+$argumentCases = @(
+  [ordered]@{ input = ''; expected = '""' },
+  [ordered]@{ input = 'plain'; expected = 'plain' },
+  [ordered]@{ input = '包含 空格'; expected = '"包含 空格"' },
+  [ordered]@{ input = 'say"hello'; expected = '"say\"hello"' },
+  [ordered]@{ input = 'C:\path with space\'; expected = '"C:\path with space\\"' }
+)
+foreach ($argumentCase in $argumentCases) {
+  Assert-Equal -Expected $argumentCase.expected `
+    -Actual (ConvertTo-KirakaraProcessArgument -Argument $argumentCase.input) `
+    -Label "PowerShell compatibility process argument '$($argumentCase.input)'"
+}
+$compatibilityChecks += [ordered]@{
+  relativePaths = $true
+  processArgumentQuoting = $true
+}
+
 $wrapperFirstLine = Get-Content -LiteralPath (Join-Path $repository 'flutterw.ps1') |
   Select-Object -First 1
-Assert-Equal -Expected '#Requires -Version 7.2' -Actual $wrapperFirstLine `
+Assert-Equal -Expected '#Requires -Version 5.1' -Actual $wrapperFirstLine `
   -Label 'PowerShell wrapper version requirement'
 $cmdWrapper = Get-Content -Raw -LiteralPath (Join-Path $repository 'flutterw.cmd')
-if ($cmdWrapper -match '(?im)^\s*powershell\.exe\b') {
-  throw 'flutterw.cmd must not fall back to unsupported Windows PowerShell.'
+if ($cmdWrapper -notmatch '(?i)WindowsPowerShell\\v1\.0\\powershell\.exe' -or
+    $cmdWrapper -match '(?im)^\s*(?:where\s+)?pwsh(?:\.exe)?\b') {
+  throw 'flutterw.cmd must use built-in Windows PowerShell without requiring pwsh.'
+}
+
+$vscodeSettingsPath = Join-Path $repository '.vscode\settings.json'
+$vscodeTasksPath = Join-Path $repository '.vscode\tasks.json'
+$vscodeSettings = Get-Content -Raw -Encoding utf8 `
+  -LiteralPath $vscodeSettingsPath | ConvertFrom-Json
+$vscodeTasks = Get-Content -Raw -Encoding utf8 `
+  -LiteralPath $vscodeTasksPath | ConvertFrom-Json
+Assert-Equal -Expected $false `
+  -Actual ([bool]$vscodeSettings.'dart.showMainCodeLens') `
+  -Label 'VS Code main.dart default Run/Debug links'
+Assert-Equal -Expected 'windows' `
+  -Actual ((@($vscodeSettings.'dart.flutterCreatePlatforms')) -join ',') `
+  -Label 'VS Code Flutter create platforms'
+Assert-Equal -Expected $false `
+  -Actual ([bool]$vscodeSettings.'dart.flutterRememberSelectedDevice') `
+  -Label 'VS Code remembered Flutter device'
+Assert-Equal -Expected $false `
+  -Actual ([bool]$vscodeSettings.'dart.flutterSelectDeviceWhenConnected') `
+  -Label 'VS Code connected Flutter device auto-selection'
+Assert-Equal -Expected 'never' `
+  -Actual ([string]$vscodeSettings.'dart.flutterShowEmulators') `
+  -Label 'VS Code Flutter emulator visibility'
+Assert-Equal -Expected '-d,windows' `
+  -Actual ((@($vscodeSettings.'dart.flutterRunAdditionalArgs')) -join ',') `
+  -Label 'VS Code Flutter run target'
+foreach ($task in @($vscodeTasks.tasks)) {
+  Assert-Equal -Expected '${workspaceFolder}\flutterw.cmd' `
+    -Actual ([string]$task.command) `
+    -Label "VS Code task '$($task.label)' wrapper"
+  if ((@($task.args) -join ' ') -match '(?i)(?:^|\s)android(?:\s|$)|\bapk\b|\baab\b') {
+    throw "VS Code task '$($task.label)' contains an Android target."
+  }
+}
+$vscodeRunTask = @($vscodeTasks.tasks | Where-Object {
+    $_.label -eq 'Kirakara：运行 main.dart（flutterw）'
+  })
+Assert-Equal -Expected 1 -Actual $vscodeRunTask.Count `
+  -Label 'VS Code Windows run task count'
+Assert-Equal -Expected 'run,-d,windows,-t,lib/main.dart' `
+  -Actual ((@($vscodeRunTask[0].args)) -join ',') `
+  -Label 'VS Code Windows run task arguments'
+$vscodeChecks = [ordered]@{
+  mainCodeLensDisabled = $true
+  windowsOnly = $true
+  automaticMobileSelectionDisabled = $true
+  tasksUseFlutterWrapper = $true
 }
 
 $lock = Get-Content -Raw -LiteralPath (Join-Path $repository `
@@ -351,6 +426,41 @@ $wrapperArgumentChecks = @()
 $logRetention = $null
 $checkoutRecovery = @()
 try {
+  $compatibilityScratch = Join-Path $scratch 'powershell-compatibility'
+  New-Item -ItemType Directory -Path $compatibilityScratch -Force | Out-Null
+  $hashFixture = Join-Path $compatibilityScratch '哈希 夹具.txt'
+  [IO.File]::WriteAllText(
+    $hashFixture,
+    'Kirakara PowerShell 5.1',
+    [Text.UTF8Encoding]::new($false))
+  $hashStream = [IO.File]::OpenRead($hashFixture)
+  $hashAlgorithm = [Security.Cryptography.SHA256]::Create()
+  try {
+    $expectedHash = [BitConverter]::ToString(
+      $hashAlgorithm.ComputeHash($hashStream)).Replace('-', '')
+  } finally {
+    $hashAlgorithm.Dispose()
+    $hashStream.Dispose()
+  }
+  Assert-Equal -Expected $expectedHash `
+    -Actual ((Get-FileHash -LiteralPath $hashFixture).Hash) `
+    -Label 'PowerShell compatibility SHA-256 shim'
+
+  $moveSource = Join-Path $compatibilityScratch 'source.txt'
+  $moveDestination = Join-Path $compatibilityScratch 'destination.txt'
+  [IO.File]::WriteAllText($moveSource, 'new', [Text.UTF8Encoding]::new($false))
+  [IO.File]::WriteAllText($moveDestination, 'old', [Text.UTF8Encoding]::new($false))
+  Move-KirakaraFile -Source $moveSource -Destination $moveDestination -Overwrite
+  Assert-Equal -Expected 'new' `
+    -Actual ([IO.File]::ReadAllText($moveDestination, [Text.Encoding]::UTF8)) `
+    -Label 'PowerShell compatibility overwrite move content'
+  Assert-Equal -Expected $false -Actual (Test-Path -LiteralPath $moveSource) `
+    -Label 'PowerShell compatibility overwrite move source removal'
+  $compatibilityChecks += [ordered]@{
+    fileHash = $true
+    overwriteMove = $true
+  }
+
   $wrapperProbe = Join-Path $scratch 'wrapper-arguments'
   $wrapperProbeScripts = Join-Path $wrapperProbe 'engine\scripts'
   New-Item -ItemType Directory -Path $wrapperProbeScripts -Force | Out-Null
@@ -382,7 +492,10 @@ Export-ModuleMember -Function Invoke-KirakaraFlutter, Invoke-KirakaraEngineComma
     'KIRAKARA_WRAPPER_ARGUMENT_REPORT', 'Process')
   try {
     $env:KIRAKARA_WRAPPER_ARGUMENT_REPORT = $argumentReport
-    & pwsh -NoLogo -NoProfile -File (Join-Path $wrapperProbe 'flutterw.ps1') `
+    $windowsPowerShell = Join-Path $env:SystemRoot `
+      'System32\WindowsPowerShell\v1.0\powershell.exe'
+    & $windowsPowerShell -NoLogo -NoProfile `
+      -File (Join-Path $wrapperProbe 'flutterw.ps1') `
       run -d windows
     if ($LASTEXITCODE -ne 0) {
       throw "flutterw.ps1 argument probe failed: $LASTEXITCODE"
@@ -833,7 +946,10 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $absoluteReport) `
   generatedAt = (Get-Date).ToUniversalTime().ToString('o')
   workspace = $layout.Root
   canonicalRepository = $canonicalRepository
-  powershell7Required = $true
+  powershell7Required = $false
+  minimumPowerShellVersion = '5.1'
+  powershellCompatibility = @($compatibilityChecks)
+  vscode = $vscodeChecks
   invocationCases = @($caseReports)
   rejectionCases = @($failureReports)
   fingerprints = $fingerprints

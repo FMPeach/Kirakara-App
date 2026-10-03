@@ -1,19 +1,32 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'powershell_compat.ps1')
 if (-not ('Kirakara.Artifacts.Security' -as [type])) {
-  Add-Type -Path (Join-Path $PSScriptRoot 'artifact_security.cs')
+  $securitySource = Join-Path $PSScriptRoot 'artifact_security.cs'
+  if ($PSVersionTable.PSEdition -eq 'Desktop') {
+    Add-Type -Path $securitySource -ReferencedAssemblies @(
+      'System.dll',
+      'System.Core.dll',
+      'System.IO.Compression.dll',
+      'System.IO.Compression.FileSystem.dll'
+    )
+  } else {
+    Add-Type -Path $securitySource
+  }
+}
+if (-not ('System.Net.Http.HttpClient' -as [type])) {
+  Add-Type -AssemblyName System.Net.Http
 }
 
 function Get-ArtifactHash {
   param([Parameter(Mandatory)][string]$Path)
   [Kirakara.Artifacts.Security]::NoReparse($Path)
-  return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
+  return Get-KirakaraFileSha256 -Path $Path
 }
 
 function Get-ArtifactTextHash {
   param([Parameter(Mandatory)][string]$Text)
-  return [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData(
-      [Text.Encoding]::UTF8.GetBytes($Text)))
+  return Get-KirakaraSha256Hex -Bytes ([Text.Encoding]::UTF8.GetBytes($Text))
 }
 
 function Assert-ArtifactFile {
@@ -64,7 +77,9 @@ function Assert-ArtifactManifest {
   foreach ($item in Get-ChildItem -LiteralPath $Root -Recurse -Force) {
     if (($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) { throw '包中不能存在符号链接或 reparse point。' }
     if ($item.PSIsContainer) { continue }
-    $relative = [IO.Path]::GetRelativePath($Root, $item.FullName).Replace('\', '/')
+    $relative = (Get-KirakaraRelativePath `
+      -BasePath $Root `
+      -Path $item.FullName).Replace('\', '/')
     if (-not $expected.Contains($relative)) { throw "包中存在未列入清单的文件：$relative" }
   }
   return $manifest
@@ -104,7 +119,7 @@ function Save-ArtifactDownload {
       $null = $response.EnsureSuccessStatusCode()
       $declared = $response.Content.Headers.ContentLength
       if ($null -ne $declared -and $declared -ne $ExpectedBytes) { throw 'HTTP 包大小与锁文件不匹配。' }
-      $input = $response.Content.ReadAsStreamAsync($cancellation.Token).GetAwaiter().GetResult()
+      $input = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
       $output = [IO.File]::Open($Path, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None)
       try {
         $buffer = [byte[]]::new(65536)
@@ -170,7 +185,8 @@ function Install-ArtifactPackage {
     if (Test-Path -LiteralPath $destinationPath) {
       if (-not (Test-Path -LiteralPath $readyPath -PathType Leaf)) { throw '安装目录存在但没有 ready stamp；请保留诊断并清理该模式后重试。' }
       [Kirakara.Artifacts.Security]::NoReparse($readyPath)
-      $ready = Get-Content -Raw -LiteralPath $readyPath | ConvertFrom-Json
+      $ready = Get-Content -Raw -LiteralPath $readyPath -Encoding utf8 |
+        ConvertFrom-Json
       if ($ready.schemaVersion -ne 1 -or $ready.identityHash -cne $IdentityHash -or
           $ready.archiveSha256 -ine $Entry.sha256 -or $ready.manifestSha256 -ine $Entry.manifestSha256) { throw 'ready stamp 与当前可信包不匹配。' }
       $manifest = Assert-ArtifactManifest $destinationPath $Kind $IdentityHash $Entry -Installed
@@ -221,4 +237,7 @@ function Install-ArtifactPackage {
 }
 
 Export-ModuleMember -Function @('Get-ArtifactHash','Get-ArtifactTextHash','Assert-ArtifactFile',
-  'Assert-ArtifactManifest','Assert-ArtifactDownloadUri','Save-ArtifactDownload','Install-ArtifactPackage')
+  'Assert-ArtifactManifest','Assert-ArtifactDownloadUri','Save-ArtifactDownload','Install-ArtifactPackage',
+  'Get-KirakaraRelativePath','Get-KirakaraSha256Hex','Get-KirakaraFileSha256',
+  'Set-KirakaraProcessArguments',
+  'Set-KirakaraProcessEnvironmentValue','Stop-KirakaraProcessTree','Move-KirakaraFile')

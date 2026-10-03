@@ -1,10 +1,11 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module (Join-Path $script:RepositoryRoot 'engine/scripts/artifact_package.psm1') -DisableNameChecking
 
 function Get-HandwritingIdentity {
-  $lock = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'third_party/data.lock.json') | ConvertFrom-Json
+  $lock = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'third_party/data.lock.json') -Encoding utf8 |
+    ConvertFrom-Json
   $data = $lock.zinniaTomoe
   if ($lock.schemaVersion -ne 1 -or $data.license -cne 'LGPL-2.1' -or -not $data.reproductionVerified) {
     throw '手写模型的来源、许可证或精确复现契约尚未通过。'
@@ -31,7 +32,8 @@ function Get-HandwritingEntry {
   if ([string]::IsNullOrWhiteSpace($LockPath)) { $LockPath = $env:KIRAKARA_DATA_PACKAGE_LOCK }
   if ([string]::IsNullOrWhiteSpace($LockPath)) { $LockPath = Join-Path $script:RepositoryRoot 'third_party/data.lock.json' }
   [Kirakara.Artifacts.Security]::NoReparse($LockPath)
-  $lock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
+  $lock = Get-Content -Raw -LiteralPath $LockPath -Encoding utf8 |
+    ConvertFrom-Json
   if ($lock.schemaVersion -ne 1) { throw '第三方数据包锁格式不受支持。' }
   $entry = $lock.zinniaTomoe.binaryPackage
   $expected = Get-HandwritingIdentity
@@ -68,7 +70,8 @@ function Assert-HandwritingContents {
     throw '手写包未保留准确的上游 LGPL-2.1 全文。'
   }
   $null = $required.Add('SOURCES.json')
-  $sources = Get-Content -Raw -LiteralPath (Join-Path $Root 'SOURCES.json') | ConvertFrom-Json
+  $sources = Get-Content -Raw -LiteralPath (Join-Path $Root 'SOURCES.json') -Encoding utf8 |
+    ConvertFrom-Json
   if ((Get-ArtifactTextHash ($sources | ConvertTo-Json -Depth 12 -Compress)) -cne $Expected.value) {
     throw '手写包源码清单与锁定输入不匹配。'
   }
@@ -85,7 +88,8 @@ function Get-HandwritingSelectedEntry {
     return $null
   }
   [Kirakara.Artifacts.Security]::NoReparse($path)
-  $selection = Get-Content -Raw -LiteralPath $path | ConvertFrom-Json
+  $selection = Get-Content -Raw -LiteralPath $path -Encoding utf8 |
+    ConvertFrom-Json
   $schemaVersion = $selection.PSObject.Properties['schemaVersion']
   if ($null -eq $schemaVersion -or $schemaVersion.Value -ne 1 -or
       $selection.kind -cne 'handwriting-data' -or

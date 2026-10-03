@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
   [Parameter(Mandatory = $true)]
   [string]$ShowHostDll,
@@ -8,10 +8,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'powershell_compat.ps1')
 
 if (-not ('Kirakara.ShowHostAbi.NativeInspector' -as [type])) {
   Add-Type -TypeDefinition @'
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace Kirakara.ShowHostAbi {
@@ -55,6 +57,17 @@ namespace Kirakara.ShowHostAbi {
     private const UInt64 RequiredCapabilities = 0x0f;
     private const string ExpectedProtocol = "nt-keyed-latest-v1";
 
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr LoadLibraryW(string path);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Ansi, SetLastError = true,
+        ExactSpelling = true)]
+    private static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool FreeLibrary(IntPtr module);
+
     private static StageVisualApi NewApi(UInt32 size) {
       return new StageVisualApi {
         StructSize = size,
@@ -63,24 +76,26 @@ namespace Kirakara.ShowHostAbi {
     }
 
     public static Inspection Inspect(string path) {
-      IntPtr library = NativeLibrary.Load(path);
+      IntPtr library = LoadLibraryW(path);
+      if (library == IntPtr.Zero) {
+        throw new Win32Exception(
+            Marshal.GetLastWin32Error(), "Unable to load libshow_host.dll.");
+      }
       try {
-        IntPtr export;
-        if (!NativeLibrary.TryGetExport(
-                library, "show_host_get_stage_visual_api", out export)) {
+        IntPtr export = GetProcAddress(library, "show_host_get_stage_visual_api");
+        if (export == IntPtr.Zero) {
           throw new EntryPointNotFoundException(
               "libshow_host.dll does not export show_host_get_stage_visual_api.");
         }
-        IntPtr deviceBindingExport;
-        bool deviceBindingExportPresent = NativeLibrary.TryGetExport(
-            library,
-            "show_host_set_stage_d3d_device",
-            out deviceBindingExport);
+        IntPtr deviceBindingExport = GetProcAddress(
+            library, "show_host_set_stage_d3d_device");
+        bool deviceBindingExportPresent = deviceBindingExport != IntPtr.Zero;
         if (!deviceBindingExportPresent) {
           throw new EntryPointNotFoundException(
               "libshow_host.dll does not export show_host_set_stage_d3d_device.");
         }
-        var getApi = Marshal.GetDelegateForFunctionPointer<GetStageVisualApi>(export);
+        var getApi = (GetStageVisualApi)Marshal.GetDelegateForFunctionPointer(
+            export, typeof(GetStageVisualApi));
         UInt32 size = checked((UInt32)Marshal.SizeOf<StageVisualApi>());
 
         StageVisualApi wrongVersion = NewApi(size);
@@ -142,7 +157,7 @@ namespace Kirakara.ShowHostAbi {
           DeviceBindingExportPresent = deviceBindingExportPresent,
         };
       } finally {
-        NativeLibrary.Free(library);
+        FreeLibrary(library);
       }
     }
   }
@@ -163,7 +178,7 @@ $report = [ordered]@{
   generatedAt = (Get-Date).ToUniversalTime().ToString('o')
   dllPath = $absoluteDll
   dllSize = [int64]$dll.Length
-  dllSha256 = (Get-FileHash -LiteralPath $absoluteDll -Algorithm SHA256).Hash
+  dllSha256 = Get-KirakaraFileSha256 -Path $absoluteDll
   structSize = [uint32]$inspection.StructSize
   wrongVersionResult = [int32]$inspection.WrongVersionResult
   wrongSizeResult = [int32]$inspection.WrongSizeResult

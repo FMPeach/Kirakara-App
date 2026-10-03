@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'artifact_package.psm1') -DisableNameChecking
 $script:AppRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
@@ -53,7 +53,8 @@ function Get-PrebuiltEngineEntry {
   }
   if ([string]::IsNullOrWhiteSpace($LockPath)) { $LockPath = Join-Path $script:AppRoot 'engine/prebuilt.lock.json' }
   [Kirakara.Artifacts.Security]::NoReparse($LockPath)
-  $prebuiltLock = Get-Content -Raw -LiteralPath $LockPath | ConvertFrom-Json
+  $prebuiltLock = Get-Content -Raw -LiteralPath $LockPath -Encoding utf8 |
+    ConvertFrom-Json
   if ($prebuiltLock.schemaVersion -ne 1 -or $prebuiltLock.packageFormatVersion -ne 2 -or
       $prebuiltLock.target -cne 'windows-x64') { throw '预编译锁格式或架构不受支持。' }
   $identity = Get-PrebuiltEngineIdentity $Lock $Mode
@@ -93,18 +94,18 @@ function Invoke-PrebuiltAbiProbe {
   $start = [Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path)
   $start.UseShellExecute = $false; $start.CreateNoWindow = $true
   $start.RedirectStandardOutput = $true; $start.RedirectStandardError = $true
-  foreach ($argument in @('-NoLogo','-NoProfile','-NonInteractive','-File',
-      (Join-Path $PSScriptRoot 'probe_prebuilt_abi.ps1'),'-DllPath',$DllPath,
-      '-EngineLockPath',(Join-Path $script:AppRoot 'engine/engine.lock.json'))) {
-    $start.ArgumentList.Add($argument)
-  }
+  Set-KirakaraProcessArguments -StartInfo $start -Arguments @(
+    '-NoLogo','-NoProfile','-NonInteractive','-File',
+    (Join-Path $PSScriptRoot 'probe_prebuilt_abi.ps1'),'-DllPath',$DllPath,
+    '-EngineLockPath',(Join-Path $script:AppRoot 'engine/engine.lock.json'))
   $process = [Diagnostics.Process]::new(); $process.StartInfo = $start
   try {
     if (-not $process.Start()) { throw '无法启动有时限的 ABI 验证进程。' }
     $stdout = $process.StandardOutput.ReadToEndAsync()
     $stderr = $process.StandardError.ReadToEndAsync()
     if (-not $process.WaitForExit(15000)) {
-      $process.Kill($true); $process.WaitForExit()
+      Stop-KirakaraProcessTree -Process $process
+      $process.WaitForExit()
       throw 'Engine ABI 验证超时；没有回退或启动源码构建。'
     }
     if ($process.ExitCode -ne 0) { throw "Engine ABI 验证失败：$($stderr.GetAwaiter().GetResult())" }

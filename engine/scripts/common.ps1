@@ -1,4 +1,5 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
+. (Join-Path $PSScriptRoot 'powershell_compat.ps1')
 
 function Resolve-UnresolvedPath {
   param([Parameter(Mandatory = $true)][string]$Path)
@@ -22,7 +23,8 @@ function Get-EngineLock {
     throw "Engine lock file is missing: $lockPath"
   }
 
-  $lock = Get-Content -Raw -LiteralPath $lockPath | ConvertFrom-Json
+  $lock = Get-Content -Raw -LiteralPath $lockPath -Encoding utf8 |
+    ConvertFrom-Json
   if ($lock.schemaVersion -ne 1) {
     throw "Unsupported engine lock schema: $($lock.schemaVersion)"
   }
@@ -209,7 +211,7 @@ function Invalidate-StaleFlutterWindowsBuildForSdk {
     return $false
   }
 
-  $configText = Get-Content -Raw -LiteralPath $generatedConfig
+  $configText = Get-Content -Raw -LiteralPath $generatedConfig -Encoding utf8
   $matches = [regex]::Matches(
     $configText,
     '(?m)^file\(TO_CMAKE_PATH "(?<root>[^"]+)" FLUTTER_ROOT\)\r?$')
@@ -1081,7 +1083,7 @@ function Assert-WindowsAppDpiAwarenessDisabled {
     if ($LASTEXITCODE -ne 0) {
       throw "Could not extract the Windows App manifest from $executablePath.`n$($output -join [Environment]::NewLine)"
     }
-    [xml]$manifest = Get-Content -Raw -LiteralPath $manifestPath
+    [xml]$manifest = Get-Content -Raw -LiteralPath $manifestPath -Encoding utf8
     $dpiAwareness = $manifest.SelectSingleNode(
       "//*[local-name()='dpiAwareness']"
     )

@@ -1,4 +1,4 @@
-# Kirakara 自有引导代码，采用仓库根 MIT；派生 Flutter tools 保留上游 BSD。
+﻿# Kirakara 自有引导代码，采用仓库根 MIT；派生 Flutter tools 保留上游 BSD。
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
@@ -172,7 +172,7 @@ function Ensure-KirakaraSdkTools {
       [IO.File]::Move($candidate,$sdkSnapshot)
       $candidate=Join-Path $sdkCache ('kirakara-stamp-'+[guid]::NewGuid().ToString('N')+'.tmp')
       [IO.File]::WriteAllText($candidate,$ready.compileStamp,[Text.UTF8Encoding]::new($false))
-      [IO.File]::Move($candidate,$sdkStamp,$true)
+      Move-KirakaraFile -Source $candidate -Destination $sdkStamp -Overwrite
       Assert-ArtifactFile $sdkSnapshot $ready.snapshot
     } finally {$sdkLock.Dispose()}
     $success=$true

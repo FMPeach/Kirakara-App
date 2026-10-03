@@ -1,9 +1,10 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param([Parameter(Mandatory)][string]$DllPath,
       [Parameter(Mandatory)][string]$EngineLockPath)
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
-$lock = Get-Content -Raw -LiteralPath $EngineLockPath | ConvertFrom-Json
+$lock = Get-Content -Raw -LiteralPath $EngineLockPath -Encoding utf8 |
+  ConvertFrom-Json
 Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;

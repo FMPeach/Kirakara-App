@@ -1,4 +1,4 @@
-#Requires -Version 7.2
+﻿#Requires -Version 5.1
 [CmdletBinding()]
 param([string]$DllPath,[string]$ReportPath)
 $ErrorActionPreference='Stop'

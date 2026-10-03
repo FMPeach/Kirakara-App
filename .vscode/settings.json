@@ -1,4 +1,14 @@
 {
   "cmake.sourceDirectory": "${workspaceFolder}/windows",
-  "dart.showMainCodeLens": false
+  "dart.showMainCodeLens": false,
+  "dart.flutterCreatePlatforms": [
+    "windows"
+  ],
+  "dart.flutterRememberSelectedDevice": false,
+  "dart.flutterSelectDeviceWhenConnected": false,
+  "dart.flutterShowEmulators": "never",
+  "dart.flutterRunAdditionalArgs": [
+    "-d",
+    "windows"
+  ]
 }

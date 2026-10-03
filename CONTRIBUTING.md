@@ -33,7 +33,8 @@ Issue 中说明想要调试的功能。
 使用 VS Code 时，从“终端 → 运行任务”选择
 “Kirakara：运行 main.dart（flutterw）”；也可以直接按 `Ctrl+Shift+B`。仓库关闭了
 `main.dart` 上方由 Dart 扩展提供的默认 Run/Debug 链接，避免它绕过 `flutterw` 调用全局
-Flutter。
+Flutter。仓库的 VS Code 设置也会固定 Windows 运行目标，并隐藏移动设备和模拟器入口；
+当前版本不支持 Android 构建。
 
 ## 开始改动
 

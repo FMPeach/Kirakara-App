@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-Kirakara-App 自有源代码采用仓库根目录的 [MIT License](LICENSE)。本文件列出的第三方
-组件继续适用各自许可证，Kirakara-App 的 MIT License 不覆盖或替代这些许可证。
+Kirakara-App 自有源代码使用 [MIT License](LICENSE)。
+本文件列出的第三方组件继续适用各自许可证。
 
 版本以 `pubspec.lock`、`engine/engine.lock.json`、`native/native.lock.json` 和
 `third_party/data.lock.json` 为准。Windows Release 中的
