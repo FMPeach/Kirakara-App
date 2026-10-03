@@ -19,7 +19,7 @@ Future<void> main() async {
   }
   final settingsFilePath = p.join(settingsDir, 'settings.json');
   final defaultCacheDirectory = Platform.isWindows
-      ? p.join(exeDir, 'Kirakara_Cache')
+      ? r'D:\Kirakara_Cache'
       : p.join((await getTemporaryDirectory()).path, 'Kirakara_Cache');
   final cacheDirectory = await SettingsService.resolveCacheDirectory(
     defaultCacheDirectory,
