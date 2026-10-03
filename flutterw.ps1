@@ -26,10 +26,12 @@ try {
     $exitCode = [int](Invoke-KirakaraEngineCommand `
         -Arguments @($FlutterArguments | Select-Object -Skip 1))
   } elseif ($FlutterArguments.Count -gt 0 -and $FlutterArguments[0] -eq 'data') {
-    Import-Module (Join-Path $PSScriptRoot 'third_party/scripts/handwriting_package.psm1') -DisableNameChecking -ErrorAction Stop
+    # VS Code terminals are long-lived. Force-refresh repository modules so a
+    # pull or local edit cannot leave this invocation running stale code.
+    Import-Module (Join-Path $PSScriptRoot 'third_party/scripts/handwriting_package.psm1') -Force -DisableNameChecking -ErrorAction Stop
     $exitCode = [int](Invoke-KirakaraDataCommand -Arguments @($FlutterArguments | Select-Object -Skip 1))
   } elseif ($FlutterArguments.Count -gt 0 -and $FlutterArguments[0] -eq 'native') {
-    Import-Module (Join-Path $PSScriptRoot 'native/scripts/native_runtime_package.psm1') -DisableNameChecking -ErrorAction Stop
+    Import-Module (Join-Path $PSScriptRoot 'native/scripts/native_runtime_package.psm1') -Force -DisableNameChecking -ErrorAction Stop
     $exitCode = [int](Invoke-KirakaraNativeCommand -Arguments @($FlutterArguments | Select-Object -Skip 1))
   } else {
     $exitCode = [int](Invoke-KirakaraFlutter -Arguments $FlutterArguments)

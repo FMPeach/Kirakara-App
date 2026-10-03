@@ -2,9 +2,9 @@
 
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
 . (Join-Path $PSScriptRoot 'common.ps1')
-Import-Module (Join-Path $PSScriptRoot 'prebuilt_engine.psm1') -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot 'flutter_sdk_tools.psm1') -DisableNameChecking
-Import-Module (Join-Path $PSScriptRoot 'show_host_input.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'prebuilt_engine.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'flutter_sdk_tools.psm1') -Force -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'show_host_input.psm1') -Force -DisableNameChecking
 
 function Get-KirakaraProjectLayout {
   $layout = Get-EngineWorkspaceLayout (Join-Path $script:RepositoryRoot '.kfe')
@@ -3085,13 +3085,13 @@ function Invoke-KirakaraFlutter {
   $invokeArguments=[Collections.Generic.List[string]]::new()
   foreach ($argument in $Arguments) { $invokeArguments.Add($argument) }
   if ($plan.injectEngine) {
-    Import-Module (Join-Path $script:RepositoryRoot 'native/scripts/native_runtime_package.psm1') -DisableNameChecking
+    Import-Module (Join-Path $script:RepositoryRoot 'native/scripts/native_runtime_package.psm1') -Force -DisableNameChecking
     $nativeRuntime = Ensure-NativeRuntimePackage
     $env:KIRAKARA_NATIVE_RUNTIME_ROOT = $nativeRuntime.runtime
-    Import-Module (Join-Path $script:RepositoryRoot 'third_party/scripts/handwriting_package.psm1') -DisableNameChecking
+    Import-Module (Join-Path $script:RepositoryRoot 'third_party/scripts/handwriting_package.psm1') -Force -DisableNameChecking
     $handwriting = Ensure-HandwritingPackage
     $env:KIRAKARA_HANDWRITING_PACKAGE_ROOT = $handwriting.root
-    Import-Module (Join-Path $script:RepositoryRoot 'third_party/scripts/rime_package.psm1') -DisableNameChecking
+    Import-Module (Join-Path $script:RepositoryRoot 'third_party/scripts/rime_package.psm1') -Force -DisableNameChecking
     $rimeData = Ensure-RimeDataPackage
     $env:KIRAKARA_RIME_DATA_PACKAGE_ROOT = $rimeData.root
     Invalidate-StaleFlutterWindowsBuildForSdk -FlutterSdkRoot $sdk.root -AppRoot $script:RepositoryRoot | Out-Null

@@ -2,7 +2,7 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'common.ps1')
-Import-Module (Join-Path $PSScriptRoot 'artifact_package.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'artifact_package.psm1') -Force -DisableNameChecking
 $script:ToolsRepository=[IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 
 function Get-KirakaraSdkToolsIdentity {

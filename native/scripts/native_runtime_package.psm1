@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 Import-Module (Join-Path $script:RepositoryRoot `
-    'engine/scripts/artifact_package.psm1') -DisableNameChecking
+    'engine/scripts/artifact_package.psm1') -Force -DisableNameChecking
 
 $script:RimeRequiredExports = @(
   'RimeSetup',

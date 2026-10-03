@@ -1,7 +1,7 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-Import-Module (Join-Path $script:RepositoryRoot 'engine/scripts/artifact_package.psm1') -DisableNameChecking
+Import-Module (Join-Path $script:RepositoryRoot 'engine/scripts/artifact_package.psm1') -Force -DisableNameChecking
 
 function Get-RimeDataIdentity {
   $lock = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'third_party/data.lock.json') -Encoding utf8 |

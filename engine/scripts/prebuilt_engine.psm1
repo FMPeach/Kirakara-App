@@ -1,6 +1,6 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-Import-Module (Join-Path $PSScriptRoot 'artifact_package.psm1') -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'artifact_package.psm1') -Force -DisableNameChecking
 $script:AppRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 
 function Get-PrebuiltEngineIdentity {

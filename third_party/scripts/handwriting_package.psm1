@@ -1,7 +1,7 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $script:RepositoryRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
-Import-Module (Join-Path $script:RepositoryRoot 'engine/scripts/artifact_package.psm1') -DisableNameChecking
+Import-Module (Join-Path $script:RepositoryRoot 'engine/scripts/artifact_package.psm1') -Force -DisableNameChecking
 
 function Get-HandwritingIdentity {
   $lock = Get-Content -Raw -LiteralPath (Join-Path $script:RepositoryRoot 'third_party/data.lock.json') -Encoding utf8 |
@@ -171,7 +171,7 @@ function Ensure-HandwritingPackage {
 function Invoke-KirakaraDataCommand {
   param([Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Arguments)
   if ($Arguments.Count -ge 2 -and $Arguments[1] -eq 'rime') {
-    Import-Module (Join-Path $PSScriptRoot 'rime_package.psm1') -DisableNameChecking
+    Import-Module (Join-Path $PSScriptRoot 'rime_package.psm1') -Force -DisableNameChecking
     return Invoke-RimeDataCommand -Arguments $Arguments
   }
   if ($Arguments.Count -eq 0 -or $Arguments[0] -eq 'status') {
