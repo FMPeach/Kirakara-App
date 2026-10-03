@@ -233,9 +233,18 @@ foreach ($argumentCase in $argumentCases) {
     -Actual (ConvertTo-KirakaraProcessArgument -Argument $argumentCase.input) `
     -Label "PowerShell compatibility process argument '$($argumentCase.input)'"
 }
+$encodingStartInfo = [Diagnostics.ProcessStartInfo]::new()
+Set-KirakaraProcessUtf8Redirection -StartInfo $encodingStartInfo
+Assert-Equal -Expected 65001 `
+  -Actual $encodingStartInfo.StandardOutputEncoding.CodePage `
+  -Label 'PowerShell compatibility standard output encoding'
+Assert-Equal -Expected 65001 `
+  -Actual $encodingStartInfo.StandardErrorEncoding.CodePage `
+  -Label 'PowerShell compatibility standard error encoding'
 $compatibilityChecks += [ordered]@{
   relativePaths = $true
   processArgumentQuoting = $true
+  redirectedProcessUtf8 = $true
 }
 
 $wrapperFirstLine = Get-Content -LiteralPath (Join-Path $repository 'flutterw.ps1') |

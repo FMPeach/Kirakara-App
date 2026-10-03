@@ -134,6 +134,20 @@ function Set-KirakaraProcessArguments {
       }) -join ' ')
 }
 
+function Set-KirakaraProcessUtf8Redirection {
+  param(
+    [Parameter(Mandatory = $true)]
+    [Diagnostics.ProcessStartInfo]$StartInfo
+  )
+
+  # .NET Framework otherwise inherits the active console code page. Native
+  # tools in this repository emit UTF-8, so a GBK console would corrupt JSON
+  # before ConvertFrom-Json sees it.
+  $utf8 = [Text.UTF8Encoding]::new($false)
+  $StartInfo.StandardOutputEncoding = $utf8
+  $StartInfo.StandardErrorEncoding = $utf8
+}
+
 function Set-KirakaraProcessEnvironmentValue {
   param(
     [Parameter(Mandatory = $true)]

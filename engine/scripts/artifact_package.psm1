@@ -239,5 +239,5 @@ function Install-ArtifactPackage {
 Export-ModuleMember -Function @('Get-ArtifactHash','Get-ArtifactTextHash','Assert-ArtifactFile',
   'Assert-ArtifactManifest','Assert-ArtifactDownloadUri','Save-ArtifactDownload','Install-ArtifactPackage',
   'Get-KirakaraRelativePath','Get-KirakaraSha256Hex','Get-KirakaraFileSha256',
-  'Set-KirakaraProcessArguments',
+  'Set-KirakaraProcessArguments','Set-KirakaraProcessUtf8Redirection',
   'Set-KirakaraProcessEnvironmentValue','Stop-KirakaraProcessTree','Move-KirakaraFile')

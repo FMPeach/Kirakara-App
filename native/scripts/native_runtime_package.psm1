@@ -344,6 +344,7 @@ function Invoke-NativeRuntimeMozcProbe {
     $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
+    Set-KirakaraProcessUtf8Redirection -StartInfo $start
     Set-KirakaraProcessArguments `
       -StartInfo $start `
       -Arguments @('compose', 'nihongo', '0', '25')
