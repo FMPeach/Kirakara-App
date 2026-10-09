@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../data/catalog/catalog_endpoint_selector.dart';
 import '../domain/media_asset.dart';
 import '../domain/song.dart';
 import 'media_stream_pump.dart';
@@ -17,6 +18,7 @@ import 'windows_native_media_io.dart';
 class PlaybackAssetCache extends ChangeNotifier {
   PlaybackAssetCache({
     required String baseUrl,
+    CatalogEndpointSelector? endpointSelector,
     Directory? cacheDir,
     Directory? cacheRoot,
     http.Client? httpClient,
@@ -30,6 +32,7 @@ class PlaybackAssetCache extends ChangeNotifier {
         assert(maxAutomaticRetries >= 0),
         assert(videoReadyBytes > 0),
         _baseUri = Uri.parse(baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'),
+        _endpointSelector = endpointSelector,
         _cacheDir = cacheDir ?? _createSessionCacheDirectory(cacheRoot),
         _http = httpClient ?? http.Client(),
         _mediaHttp = mediaHttpClient ?? http.Client(),
@@ -96,6 +99,7 @@ class PlaybackAssetCache extends ChangeNotifier {
   }
 
   final Uri _baseUri;
+  final CatalogEndpointSelector? _endpointSelector;
   final Directory _cacheDir;
   final http.Client _http;
   final http.Client _mediaHttp;
@@ -437,7 +441,35 @@ class PlaybackAssetCache extends ChangeNotifier {
       );
     }
 
-    final url = _remoteUrlFor(asset);
+    return _ensureRemoteOne(
+      songId: songId,
+      asset: asset,
+      state: state,
+      background: background,
+      required: required,
+    );
+  }
+
+  Future<void> _ensureRemoteOne({
+    required String songId,
+    required MediaAsset asset,
+    required _DownloadState state,
+    required bool background,
+    required bool required,
+  }) async {
+    String? url;
+    try {
+      url = await _resolvedRemoteUrlFor(asset);
+    } on Object catch (error) {
+      return _failWithoutDownload(
+        state,
+        PlaybackAssetDownloadException(
+          songId: songId,
+          assetType: asset.type,
+          message: '曲库服务器不可用：$error',
+        ),
+      );
+    }
     if (url == null) {
       return _failWithoutDownload(
         state,
@@ -453,7 +485,9 @@ class PlaybackAssetCache extends ChangeNotifier {
     final key = '${asset.id}|${asset.type.name}|${asset.version}|$url';
     final active = _downloads[key];
     if (active != null) {
-      return active.then((_) => _hydrateCachedAsset(asset, localPath));
+      await active;
+      await _hydrateCachedAsset(asset, localPath);
+      return;
     }
 
     late final Future<void> future;
@@ -470,7 +504,7 @@ class PlaybackAssetCache extends ChangeNotifier {
       }
     });
     _downloads[key] = future;
-    return future;
+    await future;
   }
 
   Future<void> _ensureOneDownload({
@@ -578,7 +612,15 @@ class PlaybackAssetCache extends ChangeNotifier {
       return asset.uri.toString();
     }
     if (asset.uri.hasScheme) return null;
-    return _baseUri.resolveUri(asset.uri).toString();
+    final baseUrl = _endpointSelector?.activeBaseUrl ?? _baseUri;
+    return baseUrl.resolveUri(asset.uri).toString();
+  }
+
+  Future<String?> _resolvedRemoteUrlFor(MediaAsset asset) async {
+    if (!asset.uri.hasScheme) {
+      await _endpointSelector?.resolve();
+    }
+    return _remoteUrlFor(asset);
   }
 
   String _localPathFor(MediaAsset asset) {
@@ -986,7 +1028,7 @@ class PlaybackAssetCache extends ChangeNotifier {
     final token = _registerStreamAsset(asset);
     final worker = _mediaIoWorker;
     if (worker == null) return;
-    final url = _remoteUrlFor(asset);
+    final url = await _resolvedRemoteUrlFor(asset);
     if (url == null) return;
     await worker.registerStreamAsset(
       token: token,
@@ -1160,7 +1202,7 @@ class PlaybackAssetCache extends ChangeNotifier {
     required MediaAsset asset,
     required String? rangeHeader,
   }) async {
-    final url = _remoteUrlFor(asset);
+    final url = await _resolvedRemoteUrlFor(asset);
     if (url == null) {
       request.response.statusCode = HttpStatus.serviceUnavailable;
       await request.response.close();

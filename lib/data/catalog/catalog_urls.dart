@@ -2,7 +2,7 @@
 ///
 /// 用法：
 /// ```dart
-/// final base = Uri.parse('http://localhost:7391');
+/// final base = Uri.parse('https://song.kirakara.moe/');
 /// final artistsUrl = base.resolveUri(CatalogUrls.artists);
 /// ```
 class CatalogUrls {

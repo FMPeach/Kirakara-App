@@ -4,7 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
+import '../config/server_endpoints.dart';
 import '../data/catalog/catalog_client.dart';
+import '../data/catalog/catalog_endpoint_selector.dart';
 import '../data/local_db/local_database.dart';
 import '../engine/kirakara_stage_renderer.dart';
 import '../engine/stage_renderer.dart';
@@ -62,15 +64,21 @@ class _KirakaraAppState extends State<KirakaraApp> {
     super.initState();
     _localDb = LocalDatabase(dbPath: widget.databasePath);
     _localDb.open(); // 同步打开，确保 SearchService 可用
+    final catalogEndpointSelector = CatalogEndpointSelector(
+      primaryBaseUrl: ServerEndpoints.songService,
+      fallbackBaseUrl: ServerEndpoints.localSongService,
+    );
     _catalogClient = HttpCatalogClient(
-      baseUrl: Uri.parse('http://localhost:7392'),
+      baseUrl: ServerEndpoints.songService,
+      endpointSelector: catalogEndpointSelector,
     );
     final cacheRoot = Directory(
       widget.cacheDirectoryPath ??
           p.join(Directory.systemTemp.path, 'Kirakara_Cache'),
     );
     _assetCache = PlaybackAssetCache(
-      baseUrl: 'http://localhost:7392',
+      baseUrl: ServerEndpoints.songService.toString(),
+      endpointSelector: catalogEndpointSelector,
       cacheRoot: cacheRoot,
     );
 

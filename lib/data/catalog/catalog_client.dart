@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 
 import '../../domain/song.dart';
 import '../../services/catalog_client.dart';
+import 'catalog_endpoint_selector.dart';
 import 'catalog_models.dart';
 import 'catalog_urls.dart';
 
@@ -14,20 +15,38 @@ import 'catalog_urls.dart';
 class HttpCatalogClient implements CatalogClient {
   HttpCatalogClient({
     required Uri baseUrl,
+    CatalogEndpointSelector? endpointSelector,
     http.Client? httpClient,
+    this.requestTimeout = const Duration(seconds: 10),
   })  : _baseUrl = baseUrl,
+        _endpointSelector = endpointSelector,
         _http = httpClient ?? http.Client();
 
   final Uri _baseUrl;
+  final CatalogEndpointSelector? _endpointSelector;
   final http.Client _http;
+  final Duration requestTimeout;
 
   /// 拉取全量 manifest。
   Future<CatalogManifest> fetchManifest() async {
+    final selector = _endpointSelector;
+    final baseUrl = selector == null ? _baseUrl : await selector.resolve();
+    try {
+      return await _fetchManifestFrom(baseUrl);
+    } on Object {
+      if (selector == null) rethrow;
+      final fallback = await selector.tryFallbackAfter(baseUrl);
+      if (fallback == null) rethrow;
+      return _fetchManifestFrom(fallback);
+    }
+  }
+
+  Future<CatalogManifest> _fetchManifestFrom(Uri baseUrl) async {
     final results = await Future.wait([
-      _getBody(_baseUrl.resolveUri(CatalogUrls.artists)),
-      _getBody(_baseUrl.resolveUri(CatalogUrls.songs)),
-      _getBody(_baseUrl.resolveUri(CatalogUrls.categories)),
-      _getBody(_baseUrl.resolveUri(CatalogUrls.rankings)),
+      _getBody(baseUrl.resolveUri(CatalogUrls.artists)),
+      _getBody(baseUrl.resolveUri(CatalogUrls.songs)),
+      _getBody(baseUrl.resolveUri(CatalogUrls.categories)),
+      _getBody(baseUrl.resolveUri(CatalogUrls.rankings)),
     ]);
 
     return CatalogManifest.fromRawJsonBodies(
@@ -60,7 +79,7 @@ class HttpCatalogClient implements CatalogClient {
       ...uri.queryParameters,
       'r': DateTime.now().millisecondsSinceEpoch.toString(),
     });
-    final response = await _http.get(url);
+    final response = await _http.get(url).timeout(requestTimeout);
     if (response.statusCode != 200) {
       throw HttpException('GET $url → ${response.statusCode}');
     }
