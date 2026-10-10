@@ -34,6 +34,9 @@ class MediaIoWorkerAttemptResult {
     required this.peakBufferedBytes,
     this.statusCode,
     this.errorMessage,
+    this.responseReceived,
+    this.failureStage,
+    this.platformErrorCode,
   });
 
   final MediaIoWorkerAttemptStatus status;
@@ -46,6 +49,9 @@ class MediaIoWorkerAttemptResult {
   final int peakBufferedBytes;
   final int? statusCode;
   final String? errorMessage;
+  final bool? responseReceived;
+  final String? failureStage;
+  final int? platformErrorCode;
 }
 
 class MediaIoWorkerServerMetrics {

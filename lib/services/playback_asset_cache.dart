@@ -24,7 +24,7 @@ class PlaybackAssetCache extends ChangeNotifier {
     http.Client? httpClient,
     http.Client? mediaHttpClient,
     Duration retryDelay = const Duration(milliseconds: 500),
-    int maxAutomaticRetries = 5,
+    int maxAutomaticRetries = 3,
     int videoReadyBytes = 512 * 1024,
     bool enableNativeMediaIo = true,
     bool debugMediaIo = false,
@@ -642,15 +642,24 @@ class PlaybackAssetCache extends ChangeNotifier {
     required _PreemptiblePermitLease connectionLease,
   }) async {
     final native = _nativeMediaIo;
-    if (native != null && await native.isAvailable()) {
-      final nativeResult = await _downloadToCacheNative(
+    if (native != null) {
+      // Windows production downloads are native-only. The Dart worker still
+      // owns the loopback progressive server, but it must not silently replace
+      // a failed WinHTTP transfer and reintroduce high-cost media I/O.
+      if (!await native.isAvailable()) {
+        _downloadStateFor(asset).lastError = PlaybackAssetDownloadException(
+          assetType: asset.type,
+          message: 'Windows 原生媒体下载不可用',
+        );
+        return _DownloadAttemptResult.failed;
+      }
+      return _downloadToCacheNative(
         native: native,
         url: url,
         localPath: localPath,
         asset: asset,
         connectionLease: connectionLease,
       );
-      if (nativeResult != null) return nativeResult;
     }
     final worker = _mediaIoWorker;
     if (worker != null) {
@@ -804,7 +813,7 @@ class PlaybackAssetCache extends ChangeNotifier {
     }
   }
 
-  Future<_DownloadAttemptResult?> _downloadToCacheNative({
+  Future<_DownloadAttemptResult> _downloadToCacheNative({
     required WindowsNativeMediaIo native,
     required String url,
     required String localPath,
@@ -833,7 +842,13 @@ class PlaybackAssetCache extends ChangeNotifier {
         }
       },
     );
-    if (operation == null) return null;
+    if (operation == null) {
+      state.lastError = PlaybackAssetDownloadException(
+        assetType: asset.type,
+        message: 'Windows 原生媒体下载启动失败',
+      );
+      return _DownloadAttemptResult.failed;
+    }
     _mediaIoWorker?.updateStreamAssetState(
       localPath: localPath,
       totalLength: state.totalLength,
@@ -849,6 +864,9 @@ class PlaybackAssetCache extends ChangeNotifier {
       if (connectionLease.preemptRequested) operation.cancel();
       final result = await operation.result;
       _ioMetrics.addWorkerDownloadResult(result);
+      if (result.status == MediaIoWorkerAttemptStatus.failed) {
+        _debugLogNativeMediaFailure(url, result);
+      }
       return _applyIoResult(
         result: result,
         state: state,
@@ -856,6 +874,9 @@ class PlaybackAssetCache extends ChangeNotifier {
         asset: asset,
       );
     } catch (error) {
+      if (connectionLease.preemptRequested) {
+        return _DownloadAttemptResult.preempted;
+      }
       state.lastError = PlaybackAssetDownloadException(
         assetType: asset.type,
         message: 'Windows 原生下载连接失败：$error',
@@ -870,6 +891,29 @@ class PlaybackAssetCache extends ChangeNotifier {
         producerActive: false,
       );
     }
+  }
+
+  void _debugLogNativeMediaFailure(
+    String url,
+    MediaIoWorkerAttemptResult result,
+  ) {
+    assert(() {
+      final uri = Uri.tryParse(url);
+      final endpoint = uri == null
+          ? '<invalid endpoint>'
+          : uri.hasPort
+              ? '${uri.host}:${uri.port}'
+              : uri.host;
+      debugPrint(
+        '[playback-io] native download failed for $endpoint '
+        'stage=${result.failureStage ?? 'unknown'} '
+        'response=${result.responseReceived ?? false} '
+        'http=${result.statusCode ?? 0} '
+        'win32=${result.platformErrorCode ?? 0}'
+        '${result.errorMessage == null ? '' : ': ${result.errorMessage}'}',
+      );
+      return true;
+    }());
   }
 
   Future<_DownloadAttemptResult> _downloadToCacheInWorker({

@@ -15,7 +15,7 @@ class CatalogEndpointSelector {
   CatalogEndpointSelector({
     required Uri primaryBaseUrl,
     Uri? fallbackBaseUrl,
-    this.probeTimeout = const Duration(seconds: 3),
+    this.probeTimeout = const Duration(seconds: 10),
     CatalogProbeClientFactory? probeClientFactory,
   })  : primaryBaseUrl = _normalizeBaseUrl(primaryBaseUrl),
         fallbackBaseUrl =

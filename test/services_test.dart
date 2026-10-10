@@ -1419,7 +1419,7 @@ void main() {
     HttpStatus.notFound,
     HttpStatus.serviceUnavailable,
   ]) {
-    test('required asset HTTP $statusCode retries five times then fails',
+    test('required asset HTTP $statusCode retries three times then fails',
         () async {
       final client = _AlwaysStatusHttpClient(statusCode);
       final cacheDir = await Directory.systemTemp.createTemp(
@@ -1434,7 +1434,6 @@ void main() {
         httpClient: client,
         mediaHttpClient: client,
         retryDelay: Duration.zero,
-        maxAutomaticRetries: 5,
       );
       addTearDown(cache.dispose);
       final video = MediaAsset(
@@ -1460,7 +1459,7 @@ void main() {
         ),
       );
 
-      expect(client.requestCount, 6); // initial attempt + five retries
+      expect(client.requestCount, 4); // initial attempt + three retries
       expect(cache.progressForSong(song).hasFailed, isTrue);
     });
   }

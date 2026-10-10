@@ -100,9 +100,9 @@ std::unordered_map<std::string, std::string> StringMapValue(
   return result;
 }
 
-std::string WinHttpError(const char* operation) {
+std::string WinHttpError(const char* operation, DWORD error) {
   return std::string(operation) + " failed (Win32 " +
-         std::to_string(GetLastError()) + ")";
+         std::to_string(error) + ")";
 }
 
 bool FileLength(const std::wstring& path, uint64_t* length) {
@@ -256,6 +256,9 @@ struct DownloadSnapshot {
   int status_code = 0;
   uint64_t read_calls = 0;
   uint64_t write_calls = 0;
+  bool response_received = false;
+  DWORD win32_error = ERROR_SUCCESS;
+  std::string failure_stage;
   std::string error;
 };
 
@@ -305,12 +308,15 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
   }
 
  private:
-  void Fail(const std::string& message, int status_code = 0) {
+  void Fail(
+      const std::string& message, const char* failure_stage,
+      DWORD win32_error = ERROR_SUCCESS) {
     std::lock_guard<std::mutex> lock(state_mutex_);
     state_.status = cancelled_.load(std::memory_order_acquire)
                         ? DownloadStatus::kPreempted
                         : DownloadStatus::kFailed;
-    state_.status_code = status_code;
+    state_.failure_stage = failure_stage;
+    state_.win32_error = win32_error;
     state_.error = message;
   }
 
@@ -345,24 +351,25 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
     }
     const std::wstring part_path = local_path_ + L".part";
     if (!EnsureParentDirectory(part_path)) {
-      Fail("Unable to create the cache directory");
+      Fail("Unable to create the cache directory", "cache_directory");
       return;
     }
     uint64_t existing_bytes = 0;
     if (!FileLength(part_path, &existing_bytes)) {
-      Fail("Unable to inspect the partial file");
+      Fail("Unable to inspect the partial file", "cache_inspect");
       return;
     }
 
     ParsedUrl parsed;
     if (!ParseUrl(url_, &parsed)) {
-      Fail("Invalid HTTP URL");
+      Fail("Invalid HTTP URL", "url_parse");
       return;
     }
     HINTERNET connection = WinHttpConnect(
         session_, parsed.host.c_str(), parsed.port, 0);
     if (connection == nullptr) {
-      Fail(WinHttpError("WinHttpConnect"));
+      const DWORD error = GetLastError();
+      Fail(WinHttpError("WinHttpConnect", error), "connect_setup", error);
       return;
     }
     const DWORD flags = parsed.secure ? WINHTTP_FLAG_SECURE : 0;
@@ -370,7 +377,8 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
         connection, L"GET", parsed.path.c_str(), nullptr,
         WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (request == nullptr) {
-      Fail(WinHttpError("WinHttpOpenRequest"));
+      const DWORD error = GetLastError();
+      Fail(WinHttpError("WinHttpOpenRequest", error), "request_setup", error);
       WinHttpCloseHandle(connection);
       return;
     }
@@ -404,24 +412,38 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
           WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE);
     }
 
-    BOOL sent = WinHttpSendRequest(
-        request, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
-        WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
-    if (sent) {
-      sent = WinHttpReceiveResponse(request, nullptr);
-    }
-    if (!sent) {
-      Fail(WinHttpError("WinHttpSendRequest/ReceiveResponse"));
+    if (!WinHttpSendRequest(
+            request, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+            WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
+      const DWORD error = GetLastError();
+      Fail(WinHttpError("WinHttpSendRequest", error), "send_request", error);
       CloseRequest(request);
       WinHttpCloseHandle(connection);
       return;
+    }
+    if (!WinHttpReceiveResponse(request, nullptr)) {
+      const DWORD error = GetLastError();
+      Fail(WinHttpError("WinHttpReceiveResponse", error), "receive_headers",
+           error);
+      CloseRequest(request);
+      WinHttpCloseHandle(connection);
+      return;
+    }
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      state_.response_received = true;
     }
     DWORD status_code = 0;
     if (!QueryNumericHeader(request, WINHTTP_QUERY_STATUS_CODE, &status_code)) {
-      Fail(WinHttpError("WinHttpQueryHeaders"));
+      const DWORD error = GetLastError();
+      Fail(WinHttpError("WinHttpQueryHeaders", error), "query_status", error);
       CloseRequest(request);
       WinHttpCloseHandle(connection);
       return;
+    }
+    {
+      std::lock_guard<std::mutex> lock(state_mutex_);
+      state_.status_code = static_cast<int>(status_code);
     }
     constexpr DWORD kHttpStatusRangeNotSatisfiable = 416;
     if (status_code == kHttpStatusRangeNotSatisfiable && existing_bytes > 0) {
@@ -438,7 +460,7 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
     if (status_code != HTTP_STATUS_OK &&
         status_code != HTTP_STATUS_PARTIAL_CONTENT) {
       Fail("Server returned HTTP " + std::to_string(status_code),
-           static_cast<int>(status_code));
+           "http_status");
       CloseRequest(request);
       WinHttpCloseHandle(connection);
       return;
@@ -456,7 +478,7 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
         FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
         OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN, nullptr);
     if (file == INVALID_HANDLE_VALUE) {
-      Fail("Unable to open the partial file");
+      Fail("Unable to open the partial file", "file_open", GetLastError());
       CloseRequest(request);
       WinHttpCloseHandle(connection);
       return;
@@ -465,7 +487,8 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
     position.QuadPart = append ? static_cast<LONGLONG>(existing_bytes) : 0;
     if (!SetFilePointerEx(file, position, nullptr, FILE_BEGIN) ||
         (!append && !SetEndOfFile(file))) {
-      Fail("Unable to position the partial file");
+      Fail("Unable to position the partial file", "file_position",
+           GetLastError());
       CloseHandle(file);
       CloseRequest(request);
       WinHttpCloseHandle(connection);
@@ -496,8 +519,9 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
       if (!WriteFile(
               file, buffer.data(), static_cast<DWORD>(buffered_bytes),
               &written, nullptr) || written != buffered_bytes) {
-        Fail("WriteFile failed (Win32 " +
-             std::to_string(GetLastError()) + ")");
+        const DWORD error = GetLastError();
+        Fail("WriteFile failed (Win32 " + std::to_string(error) + ")",
+             "file_write", error);
         return false;
       }
       {
@@ -515,7 +539,9 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
       DWORD available_bytes = 0;
       if (!WinHttpQueryDataAvailable(request, &available_bytes)) {
         if (!cancelled_.load(std::memory_order_acquire)) {
-          Fail(WinHttpError("WinHttpQueryDataAvailable"));
+          const DWORD error = GetLastError();
+          Fail(WinHttpError("WinHttpQueryDataAvailable", error),
+               "body_available", error);
         }
         io_ok = false;
         break;
@@ -536,7 +562,8 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
               request, buffer.data() + buffered_bytes,
               bytes_to_read, &bytes_read)) {
         if (!cancelled_.load(std::memory_order_acquire)) {
-          Fail(WinHttpError("WinHttpReadData"));
+          const DWORD error = GetLastError();
+          Fail(WinHttpError("WinHttpReadData", error), "body_read", error);
         }
         io_ok = false;
         break;
@@ -584,13 +611,14 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
     }
     uint64_t actual_length = 0;
     if (!FileLength(part_path, &actual_length)) {
-      Fail("Unable to inspect the completed partial file");
+      Fail("Unable to inspect the completed partial file", "cache_inspect");
       return;
     }
     if (expected_length >= 0 &&
         actual_length < static_cast<uint64_t>(expected_length)) {
       Fail("Download ended early: " + std::to_string(actual_length) + "/" +
-           std::to_string(expected_length) + " bytes");
+               std::to_string(expected_length) + " bytes",
+           "body_length");
       return;
     }
     {
@@ -623,7 +651,7 @@ class MediaIoRuntime {
         L"Kirakara/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
         WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (session_ != nullptr) {
-      WinHttpSetTimeouts(session_, 5000, 10000, 10000, 15000);
+      WinHttpSetTimeouts(session_, 10000, 10000, 10000, 10000);
     }
   }
 
@@ -699,6 +727,19 @@ class MediaIoRuntime {
       encoded.emplace(
           EncodableValue("statusCode"),
           EncodableValue(static_cast<int64_t>(state.status_code)));
+      encoded.emplace(
+          EncodableValue("responseReceived"),
+          EncodableValue(state.response_received));
+      if (state.win32_error != ERROR_SUCCESS) {
+        encoded.emplace(
+            EncodableValue("win32Error"),
+            EncodableValue(static_cast<int64_t>(state.win32_error)));
+      }
+      if (!state.failure_stage.empty()) {
+        encoded.emplace(
+            EncodableValue("failureStage"),
+            EncodableValue(state.failure_stage));
+      }
       encoded.emplace(
           EncodableValue("readCalls"),
           EncodableValue(static_cast<int64_t>(state.read_calls)));

@@ -143,6 +143,9 @@ class WindowsNativeMediaIo {
             statusCode:
                 statusCode == null || statusCode == 0 ? null : statusCode,
             errorMessage: raw['error'] as String?,
+            responseReceived: raw['responseReceived'] as bool?,
+            failureStage: raw['failureStage'] as String?,
+            platformErrorCode: raw['win32Error'] as int?,
           ),
         );
         unawaited(_channel.invokeMethod<void>('release', {'id': id}));

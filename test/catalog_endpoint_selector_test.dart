@@ -29,6 +29,12 @@ void main() {
     expect(requests.single.queryParameters['r'], isNotEmpty);
   });
 
+  test('allows a cold public endpoint enough time to answer', () {
+    final selector = CatalogEndpointSelector(primaryBaseUrl: primary);
+
+    expect(selector.probeTimeout, const Duration(seconds: 10));
+  });
+
   test('falls back to the localhost development server', () async {
     final requests = <Uri>[];
     final selector = CatalogEndpointSelector(
