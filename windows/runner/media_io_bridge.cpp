@@ -382,6 +382,17 @@ class NativeDownload : public std::enable_shared_from_this<NativeDownload> {
       WinHttpCloseHandle(connection);
       return;
     }
+    if (parsed.secure &&
+        !WinHttpSetOption(
+            request, WINHTTP_OPTION_CLIENT_CERT_CONTEXT,
+            WINHTTP_NO_CLIENT_CERT_CONTEXT, 0)) {
+      const DWORD error = GetLastError();
+      Fail(WinHttpError("WinHttpSetOption(client certificate)", error),
+           "client_cert_policy", error);
+      WinHttpCloseHandle(request);
+      WinHttpCloseHandle(connection);
+      return;
+    }
     {
       std::lock_guard<std::mutex> lock(request_mutex_);
       if (cancelled_.load(std::memory_order_acquire)) {
