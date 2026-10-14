@@ -5,24 +5,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../domain/playback_state.dart';
+import '../services/display_manager.dart';
 import '../services/kirakara_show_service.dart';
 import '../services/stage_texture_service.dart';
 import 'stage_renderer.dart';
 
-class KirakaraStageRenderer implements StageRenderer {
+class KirakaraStageRenderer
+    implements StageRenderer, StagePreviewCompositionController {
   KirakaraStageRenderer({
     required KirakaraShowService showService,
+    DisplayManager? displayManager,
+    StageTextureController? stageTextureController,
   })  : _showService = showService,
-        _stageTextureController = StageTextureController() {
+        _displayManager = displayManager,
+        _stageTextureController =
+            stageTextureController ?? StageTextureController() {
+    _stageTextureController.onPreviewSurfaceInvalidated =
+        _handleNativePreviewSurfaceInvalidation;
     _windowsStage = _KirakaraGpuStageWidget(
       showService: _showService,
       textureController: _stageTextureController,
+      previewRepaint: _previewRepaint,
     );
   }
 
   final KirakaraShowService _showService;
+  final DisplayManager? _displayManager;
   final StageTextureController _stageTextureController;
+  final _StagePreviewRepaintSignal _previewRepaint =
+      _StagePreviewRepaintSignal();
   late final Widget _windowsStage;
+
+  @override
+  Future<void> invalidatePreviewComposition() async {
+    if (!Platform.isWindows) return;
+    if (_displayManager?.mode == DisplayMode.dualScreen) {
+      await _stageTextureController.refreshComposedPresentation();
+      _previewRepaint.pulse();
+      return;
+    }
+    _previewRepaint.pulse();
+  }
+
+  void _handleNativePreviewSurfaceInvalidation() {
+    unawaited(invalidatePreviewComposition());
+  }
 
   @override
   Widget buildStage({
@@ -31,23 +58,13 @@ class KirakaraStageRenderer implements StageRenderer {
     required RenderPreset preset,
   }) {
     if (Platform.isWindows) {
-      // Keep the native presentation element stable when unrelated controller
-      // state changes. Native Show drives frame availability directly;
-      // rebuilding this subtree cannot advance it. The idle cover lives above
-      // the transparent composed hole so startup never exposes the undefined
-      // HWND backing pixels before Show has published its first program.
-      return AnimatedBuilder(
-        animation: _showService,
-        child: _windowsStage,
-        builder: (context, stage) => Stack(
-          fit: StackFit.expand,
-          children: [
-            stage!,
-            if (playbackState.currentSong == null || _showService.isLoading)
-              const ColoredBox(color: Colors.black),
-          ],
-        ),
-      );
+      // Show and the patched Windows compositor own the Stage contents once
+      // attached. Do not cover that native Visual from transient Flutter
+      // playback/loading state: doing so hides Show's retained transition
+      // frame even though the physical Stage continues presenting normally.
+      // The widget itself is black before attachment, while the compositor
+      // supplies an opaque-black placeholder before the first native frame.
+      return _windowsStage;
     }
     return ColoredBox(color: mediaFrame.backgroundColor);
   }
@@ -57,10 +74,12 @@ class _KirakaraGpuStageWidget extends StatefulWidget {
   const _KirakaraGpuStageWidget({
     required this.showService,
     required this.textureController,
+    required this.previewRepaint,
   });
 
   final KirakaraShowService showService;
   final StageTextureController textureController;
+  final Listenable previewRepaint;
 
   @override
   State<_KirakaraGpuStageWidget> createState() =>
@@ -109,7 +128,10 @@ class _KirakaraGpuStageWidgetState extends State<_KirakaraGpuStageWidget> {
       return const ColoredBox(color: Colors.black);
     }
     if (attachment.isComposed) {
-      return _ComposedStageHole(controller: widget.textureController);
+      return _ComposedStageHole(
+        controller: widget.textureController,
+        previewRepaint: widget.previewRepaint,
+      );
     }
     return ColoredBox(
       color: Colors.black,
@@ -122,9 +144,13 @@ class _KirakaraGpuStageWidgetState extends State<_KirakaraGpuStageWidget> {
 }
 
 class _ComposedStageHole extends StatefulWidget {
-  const _ComposedStageHole({required this.controller});
+  const _ComposedStageHole({
+    required this.controller,
+    required this.previewRepaint,
+  });
 
   final StageTextureController controller;
+  final Listenable previewRepaint;
 
   @override
   State<_ComposedStageHole> createState() => _ComposedStageHoleState();
@@ -190,7 +216,14 @@ class _ComposedStageHoleState extends State<_ComposedStageHole>
       onGeometryChanged: _scheduleGeometryReport,
       child: CustomPaint(
         key: _slotKey,
-        painter: const _ClearStageHolePainter(),
+        painter: _ClearStageHolePainter(widget.previewRepaint),
+        // The clear operation is destination-dependent: once flattened into a
+        // raster-cache bitmap, its transparent pixels can no longer erase the
+        // opaque controller background below them. Keep the containing
+        // DisplayList live so every already-scheduled Flutter frame replays
+        // the clear operation. This is only a cache hint; it does not request
+        // frames or start a frame pump while the UI is idle.
+        willChange: true,
         child: const SizedBox.expand(),
       ),
     );
@@ -278,7 +311,7 @@ class _RenderStageGeometryObserver extends RenderProxyBox {
 }
 
 class _ClearStageHolePainter extends CustomPainter {
-  const _ClearStageHolePainter();
+  _ClearStageHolePainter(Listenable repaint) : super(repaint: repaint);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -295,4 +328,8 @@ class _ClearStageHolePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ClearStageHolePainter oldDelegate) => false;
+}
+
+class _StagePreviewRepaintSignal extends ChangeNotifier {
+  void pulse() => notifyListeners();
 }

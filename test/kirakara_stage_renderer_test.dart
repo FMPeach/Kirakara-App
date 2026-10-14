@@ -1,18 +1,21 @@
 import 'dart:io';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirakara_app/domain/playback_state.dart';
 import 'package:kirakara_app/domain/queue_item.dart';
 import 'package:kirakara_app/domain/song.dart';
 import 'package:kirakara_app/engine/kirakara_stage_renderer.dart';
 import 'package:kirakara_app/engine/stage_renderer.dart';
+import 'package:kirakara_app/services/display_manager.dart';
 import 'package:kirakara_app/services/kirakara_show_service.dart';
 import 'package:kirakara_app/services/playback_service.dart';
 import 'package:kirakara_app/services/queue_service.dart';
+import 'package:kirakara_app/services/stage_texture_service.dart';
 
 void main() {
-  testWidgets('Windows Stage stays black until a song is selected',
+  testWidgets('Windows Stage stays native across playback state transitions',
       (tester) async {
     final queueService = QueueService();
     final playbackService = PlaybackService(queueService: queueService);
@@ -28,27 +31,6 @@ void main() {
       playbackState: PlaybackState.initial(),
       mediaFrame: const MediaFrame(backgroundColor: Color(0xffffffff)),
       preset: const RenderPreset(),
-    );
-
-    expect(idle, isA<AnimatedBuilder>());
-    final idleBuilder = idle as AnimatedBuilder;
-    final contextKey = GlobalKey();
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: SizedBox(key: contextKey),
-      ),
-    );
-    final idleStack = idleBuilder.builder(
-        contextKey.currentContext!, idleBuilder.child) as Stack;
-    expect(idleStack.children, hasLength(2));
-    expect(
-      idleStack.children.last,
-      isA<ColoredBox>().having(
-        (box) => box.color,
-        'color',
-        const Color(0xff000000),
-      ),
     );
 
     final selected = renderer.buildStage(
@@ -68,12 +50,7 @@ void main() {
       preset: const RenderPreset(),
     );
 
-    final selectedBuilder = selected as AnimatedBuilder;
-    final selectedStack = selectedBuilder.builder(
-      contextKey.currentContext!,
-      selectedBuilder.child,
-    ) as Stack;
-    expect(selectedStack.children, hasLength(1));
+    expect(identical(idle, selected), isTrue);
   }, skip: !Platform.isWindows);
 
   test('composed Stage bounds include the controller paint transform', () {
@@ -92,4 +69,91 @@ void main() {
       const Rect.fromLTWH(25, 37.5, 1200, 675),
     );
   });
+
+  testWidgets('composed Stage preview can be invalidated without rebuilding',
+      (tester) async {
+    final queueService = QueueService();
+    final playbackService = PlaybackService(queueService: queueService);
+    final showService = KirakaraShowService(playbackService: playbackService);
+    final displayManager = DisplayManager();
+    final textureController = _ComposedStageTextureController();
+    final renderer = KirakaraStageRenderer(
+      showService: showService,
+      displayManager: displayManager,
+      stageTextureController: textureController,
+    );
+    addTearDown(() async {
+      displayManager.dispose();
+      await showService.dispose();
+      playbackService.dispose();
+      queueService.dispose();
+    });
+
+    final stage = renderer.buildStage(
+      playbackState: PlaybackState.initial(),
+      mediaFrame: const MediaFrame(backgroundColor: Color(0xff000000)),
+      preset: const RenderPreset(),
+    );
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: SizedBox(
+          width: 640,
+          height: 360,
+          child: stage,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final customPaint = tester.widget<CustomPaint>(find.byType(CustomPaint));
+    expect(customPaint.willChange, isTrue);
+    final painter = customPaint.painter!;
+    var invalidationCount = 0;
+    void onInvalidated() => invalidationCount++;
+    painter.addListener(onInvalidated);
+    addTearDown(() => painter.removeListener(onInvalidated));
+
+    await renderer.invalidatePreviewComposition();
+    expect(invalidationCount, 1);
+    expect(textureController.presentationRefreshCount, 0);
+
+    await displayManager.openStageWindow(preview: false);
+    await renderer.invalidatePreviewComposition();
+    expect(invalidationCount, 2);
+    expect(textureController.presentationRefreshCount, 1);
+    await tester.pump();
+    expect(find.byWidget(stage), findsOneWidget);
+  }, skip: !Platform.isWindows);
+}
+
+class _ComposedStageTextureController extends StageTextureController {
+  _ComposedStageTextureController()
+      : super(
+          textureChannel:
+              const MethodChannel('kirakara/test_stage_renderer_texture'),
+          compositorChannel:
+              const MethodChannel('kirakara/test_stage_renderer_compositor'),
+        );
+
+  int presentationRefreshCount = 0;
+
+  @override
+  Future<StagePresentationAttachment?> attach(int hostHandle) async =>
+      const StagePresentationAttachment.composed();
+
+  @override
+  Future<void> setActive(bool active) async {}
+
+  @override
+  Future<void> refreshComposedPresentation() async {
+    presentationRefreshCount++;
+  }
+
+  @override
+  Future<void> setComposedGeometry({
+    required Rect physicalBounds,
+    bool visible = true,
+    String fit = 'contain',
+  }) async {}
 }

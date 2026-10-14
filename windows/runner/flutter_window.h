@@ -28,6 +28,7 @@ class FlutterWindow : public Win32Window {
 
  private:
   void ArmFlutterPresentTrace();
+  void RefreshComposedStagePreview();
   void UpdateCompositorWindowAvailability();
 
   // The project to run.
@@ -42,6 +43,8 @@ class FlutterWindow : public Win32Window {
   bool compositor_power_suspended_ = false;
   bool compositor_session_locked_ = false;
   bool session_notifications_registered_ = false;
+  bool compositor_interactive_move_seen_ = false;
+  bool compositor_interactive_resize_seen_ = false;
 };
 
 #endif  // RUNNER_FLUTTER_WINDOW_H_

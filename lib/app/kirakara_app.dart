@@ -123,7 +123,10 @@ class _KirakaraAppState extends State<KirakaraApp> {
       bilibiliAccountService: bilibiliAccountService,
       bindAddress: widget.lanServerBindAddress,
     );
-    stageRenderer = KirakaraStageRenderer(showService: kirakaraShowService);
+    stageRenderer = KirakaraStageRenderer(
+      showService: kirakaraShowService,
+      displayManager: displayManager,
+    );
     // 热插拔：插入第二屏后自动开双屏
     displayManager.onStageDisplayAttached = _onStageDisplayHotPlugged;
     unawaited(_initializeDisplayOutput());

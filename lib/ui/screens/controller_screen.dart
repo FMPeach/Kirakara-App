@@ -672,10 +672,33 @@ class _ControllerScreenState extends State<ControllerScreen> {
 
   Future<T?> _showControllerDialog<T>({
     required WidgetBuilder builder,
-  }) {
-    return showDialog<T>(
+  }) async {
+    // Keep the route itself equivalent to showDialog, but retain it long
+    // enough to await TransitionRoute.completed. showDialog's returned future
+    // completes as soon as pop is requested, before the reverse transition and
+    // modal barrier have actually left the Flutter surface.
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<T>(
       context: context,
       builder: builder,
+      barrierColor: DialogTheme.of(context).barrierColor ??
+          Theme.of(context).dialogTheme.barrierColor ??
+          Colors.black54,
+      themes: InheritedTheme.capture(
+        from: context,
+        to: navigator.context,
+      ),
+      traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
     );
+    final result = await navigator.push<T>(route);
+    await route.completed;
+    if (mounted) {
+      final renderer = widget.stageRenderer;
+      if (renderer is StagePreviewCompositionController) {
+        await (renderer as StagePreviewCompositionController)
+            .invalidatePreviewComposition();
+      }
+    }
+    return result;
   }
 }

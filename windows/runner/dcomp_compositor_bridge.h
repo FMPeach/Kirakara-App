@@ -48,6 +48,11 @@ class DcompCompositorBridge {
   // without rebuilding the Show host or HWND.
   void HandleWindowAvailabilityChanged(bool available);
 
+  // Tells Dart that the upper Flutter surface needs to repaint its transparent
+  // Stage slot once. Used after a top-level move, where the Stage geometry is
+  // unchanged and therefore no normal layout notification is produced.
+  void NotifyPreviewSurfaceInvalidated();
+
   // Records whether the Runner successfully subscribed to this session's
   // lock/unlock messages so diagnostics can distinguish a tested route from
   // an unavailable OS notification source.

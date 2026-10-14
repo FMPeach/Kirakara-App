@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirakara_app/services/stage_texture_service.dart';
@@ -88,6 +90,7 @@ void main() {
       fit: 'fill',
     );
     await controller.setActive(true);
+    await controller.refreshComposedPresentation();
     await controller.setActive(false);
     await controller.detach();
     expect((await controller.attach(1001))?.isComposed, isTrue);
@@ -98,6 +101,7 @@ void main() {
       'attachStage',
       'setStageGeometry',
       'setStageActive',
+      'refreshStagePresentation',
       'setStageActive',
       'detachStage',
       'getBackendInfo',
@@ -188,5 +192,27 @@ void main() {
     expect(controller.attachment, same(original));
     expect((await controller.attach(2002))?.isComposed, isTrue);
     expect(replacementAttempts, 2);
+  });
+
+  test('forwards one-shot native preview surface invalidation', () async {
+    const compositorChannel = MethodChannel('kirakara/test_dcomp_invalidation');
+    final controller = StageTextureController(
+      textureChannel: channel,
+      compositorChannel: compositorChannel,
+    );
+    var invalidationCount = 0;
+    controller.onPreviewSurfaceInvalidated = () => invalidationCount++;
+
+    final response = Completer<void>();
+    await messenger.handlePlatformMessage(
+      compositorChannel.name,
+      const StandardMethodCodec().encodeMethodCall(
+        const MethodCall('onPreviewSurfaceInvalidated'),
+      ),
+      (_) => response.complete(),
+    );
+    await response.future;
+
+    expect(invalidationCount, 1);
   });
 }

@@ -25,18 +25,30 @@ class StageTextureController {
     MethodChannel compositorChannel =
         const MethodChannel('kirakara/dcomp_compositor'),
   })  : _textureChannel = textureChannel,
-        _compositorChannel = compositorChannel;
+        _compositorChannel = compositorChannel {
+    _compositorChannel.setMethodCallHandler(_handleCompositorCallback);
+  }
 
   final MethodChannel _textureChannel;
   final MethodChannel _compositorChannel;
   int? _hostHandle;
   StagePresentationAttachment? _attachment;
   Future<StagePresentationAttachment?>? _pendingAttach;
+  Future<void>? _pendingPresentationRefresh;
   Map<String, Object?>? _lastGeometry;
+
+  VoidCallback? onPreviewSurfaceInvalidated;
 
   StagePresentationAttachment? get attachment => _attachment;
   int? get textureId => _attachment?.textureId;
   bool get isComposed => _attachment?.isComposed ?? false;
+
+  Future<Object?> _handleCompositorCallback(MethodCall call) async {
+    if (call.method == 'onPreviewSurfaceInvalidated') {
+      onPreviewSurfaceInvalidated?.call();
+    }
+    return null;
+  }
 
   Future<StagePresentationAttachment?> attach(int hostHandle) {
     if (hostHandle == 0) {
@@ -143,6 +155,39 @@ class StageTextureController {
       debugPrint('Unified Stage texture bridge is unavailable: $error');
     } on PlatformException catch (error) {
       debugPrint('Unable to update Stage texture activity: ${error.message}');
+    }
+  }
+
+  /// Recycles only the composed controller-preview consumer.
+  ///
+  /// The physical Stage remains attached and keeps presenting. This is used
+  /// sparingly after a modal route is removed or a controller-window move
+  /// completes, when DWM can leave the lower Stage Visual stale even though
+  /// Show is still producing valid frames.
+  Future<void> refreshComposedPresentation() {
+    if (!isComposed) return Future<void>.value();
+    final pending = _pendingPresentationRefresh;
+    if (pending != null) return pending;
+
+    late final Future<void> operation;
+    operation = _refreshComposedPresentation().whenComplete(() {
+      if (identical(_pendingPresentationRefresh, operation)) {
+        _pendingPresentationRefresh = null;
+      }
+    });
+    _pendingPresentationRefresh = operation;
+    return operation;
+  }
+
+  Future<void> _refreshComposedPresentation() async {
+    try {
+      await _compositorChannel.invokeMethod<void>('refreshStagePresentation');
+    } on MissingPluginException catch (error) {
+      debugPrint('Composed Stage refresh bridge is unavailable: $error');
+    } on PlatformException catch (error) {
+      debugPrint(
+        'Unable to refresh composed Stage presentation: ${error.message}',
+      );
     }
   }
 

@@ -15,6 +15,7 @@
 namespace {
 
 constexpr UINT kArmFlutterPresentTraceMessage = WM_APP + 0x4B;
+constexpr UINT kRefreshComposedStagePreviewMessage = WM_APP + 0x4E;
 
 }  // namespace
 
@@ -144,6 +145,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
     ArmFlutterPresentTrace();
     return 0;
   }
+  if (message == kRefreshComposedStagePreviewMessage) {
+    RefreshComposedStagePreview();
+    return 0;
+  }
   if (message == kKirakaraCompositorResizeForTestMessage) {
     if (dcomp_compositor_bridge_) {
       dcomp_compositor_bridge_->HandleTestResizeMessage(
@@ -163,6 +168,28 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   // Lifecycle state must be observed even when Flutter's top-level window
   // handler consumes the corresponding message below.
   switch (message) {
+    case WM_ENTERSIZEMOVE:
+      compositor_interactive_move_seen_ = false;
+      compositor_interactive_resize_seen_ = false;
+      break;
+    case WM_MOVING:
+      compositor_interactive_move_seen_ = true;
+      break;
+    case WM_SIZING:
+      compositor_interactive_resize_seen_ = true;
+      break;
+    case WM_EXITSIZEMOVE:
+      // A pure top-level move does not change Flutter view metrics. Queue the
+      // repair after this modal move message has completed so DWM and Flutter
+      // have both observed the final window position. Resizing already emits
+      // fresh metrics and frames, so keep that stable path untouched.
+      if (compositor_interactive_move_seen_ &&
+          !compositor_interactive_resize_seen_) {
+        ::PostMessageW(hwnd, kRefreshComposedStagePreviewMessage, 0, 0);
+      }
+      compositor_interactive_move_seen_ = false;
+      compositor_interactive_resize_seen_ = false;
+      break;
     case WM_SIZE:
       compositor_window_minimized_ = wparam == SIZE_MINIMIZED;
       UpdateCompositorWindowAvailability();
@@ -213,6 +240,12 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
 
   return Win32Window::MessageHandler(hwnd, message, wparam, lparam);
+}
+
+void FlutterWindow::RefreshComposedStagePreview() {
+  if (dcomp_compositor_bridge_ && dcomp_compositor_bridge_->enabled()) {
+    dcomp_compositor_bridge_->NotifyPreviewSurfaceInvalidated();
+  }
 }
 
 void FlutterWindow::UpdateCompositorWindowAvailability() {
