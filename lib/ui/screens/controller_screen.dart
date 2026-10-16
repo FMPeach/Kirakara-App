@@ -1,4 +1,4 @@
-import 'dart:async' show Timer;
+import 'dart:async' show Timer, unawaited;
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -587,7 +587,9 @@ class _ControllerScreenState extends State<ControllerScreen> {
       return;
     }
     if (_hasStageOutput) await _closeStageOutput();
-    await widget.castService.enableCastMode();
+    // Discovery remains active for 40 seconds, but enabling wireless output
+    // must not keep the whole output dialog in its short-operation busy state.
+    unawaited(widget.castService.enableCastMode());
   }
 
   Future<void> _selectStageDisplay(DisplayInfo display) async {

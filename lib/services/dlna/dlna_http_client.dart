@@ -73,15 +73,18 @@ class DlnaHttpClient {
     }
     final address = InternetAddress.tryParse(uri.host);
     if (address == null || address.type != InternetAddressType.IPv4) {
-      throw FormatException('DLNA URL must use an IPv4 LAN address: $uri');
+      throw FormatException('DLNA URL must use an IPv4 address: $uri');
     }
     final parts = address.address.split('.').map(int.parse).toList();
-    final privateAddress = parts[0] == 10 ||
-        (parts[0] == 172 && parts[1] >= 16 && parts[1] <= 31) ||
-        (parts[0] == 192 && parts[1] == 168) ||
-        (parts[0] == 169 && parts[1] == 254);
-    if (!privateAddress) {
-      throw FormatException('DLNA URL is outside the physical LAN: $uri');
+    final invalidTarget = parts[0] == 0 ||
+        parts[0] == 127 ||
+        parts[0] >= 224 ||
+        (parts[0] == 255 &&
+            parts[1] == 255 &&
+            parts[2] == 255 &&
+            parts[3] == 255);
+    if (invalidTarget) {
+      throw FormatException('DLNA URL is not a unicast IPv4 endpoint: $uri');
     }
   }
 }

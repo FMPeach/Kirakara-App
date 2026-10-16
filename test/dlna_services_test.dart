@@ -7,6 +7,7 @@ import 'package:kirakara_app/services/dlna/dlna_device.dart';
 import 'package:kirakara_app/services/dlna/dlna_device_description_parser.dart';
 import 'package:kirakara_app/services/dlna/dlna_discovery_service.dart';
 import 'package:kirakara_app/services/dlna/dlna_http_client.dart';
+import 'package:kirakara_app/services/dlna/windows_upnp_discovery_bridge.dart';
 import 'package:kirakara_app/services/display_manager.dart';
 import 'package:kirakara_app/services/kirakara_show_service.dart';
 import 'package:kirakara_app/services/lan_address_resolver.dart';
@@ -16,6 +17,13 @@ import 'package:kirakara_app/services/queue_service.dart';
 
 void main() {
   group('SSDP discovery protocol', () {
+    test('uses a forty-second discovery window', () {
+      expect(
+        DlnaDiscoveryService.defaultResponseWindow,
+        const Duration(seconds: 40),
+      );
+    });
+
     test('builds a standards-shaped M-SEARCH request', () {
       final request = DlnaDiscoveryService.buildSearchRequest(
         'urn:schemas-upnp-org:device:MediaRenderer:1',
@@ -37,6 +45,82 @@ void main() {
 
       expect(headers['location'], 'http://192.168.1.20:1400/device.xml');
       expect(headers['usn'], 'uuid:renderer::upnp:rootdevice');
+    });
+
+    test('accepts a directed NOTIFY whose HOST header remains multicast', () {
+      final message = DlnaDiscoveryService.parseSsdpMessage(
+        'NOTIFY * HTTP/1.1\r\n'
+        'HOST: 239.255.255.250:1900\r\n'
+        'NT: urn:schemas-upnp-org:device:MediaRenderer:1\r\n'
+        'NTS: ssdp:alive\r\n'
+        'USN: uuid:renderer::urn:schemas-upnp-org:device:MediaRenderer:1\r\n'
+        'LOCATION: http://192.168.254.31:49152/description.xml\r\n\r\n',
+      );
+
+      expect(message?.type, DlnaSsdpMessageType.alive);
+      expect(message?.usn, contains('uuid:renderer'));
+      expect(
+        message?.location,
+        Uri.parse('http://192.168.254.31:49152/description.xml'),
+      );
+    });
+
+    test('parses update and byebye notifications', () {
+      final update = DlnaDiscoveryService.parseSsdpMessage(
+        'NOTIFY * HTTP/1.1\r\n'
+        'NTS: ssdp:update\r\n'
+        'USN: uuid:renderer::upnp:rootdevice\r\n'
+        'LOCATION: http://100.64.1.20/device.xml\r\n\r\n',
+      );
+      final byebye = DlnaDiscoveryService.parseSsdpMessage(
+        'NOTIFY * HTTP/1.1\r\n'
+        'NTS: ssdp:byebye\r\n'
+        'USN: uuid:renderer::upnp:rootdevice\r\n\r\n',
+      );
+
+      expect(update?.type, DlnaSsdpMessageType.update);
+      expect(byebye?.type, DlnaSsdpMessageType.byebye);
+      expect(byebye?.location, isNull);
+    });
+
+    test('routes a Windows SSDP device event through shared validation',
+        () async {
+      final systemDiscovery = _FakeSystemDiscovery(
+        location: Uri.parse(
+          'http://192.168.254.31:49152/description.xml',
+        ),
+        usn: 'uuid:directed-renderer::upnp:rootdevice',
+      );
+      final service = DlnaDiscoveryService(
+        localInterfacesResolver: () async => const [
+          DlnaDiscoveryInterface(
+            candidate: LanAddressCandidate(
+              interfaceName: 'Loopback test interface',
+              address: '127.0.0.1',
+            ),
+          ),
+        ],
+        systemDiscovery: systemDiscovery,
+        descriptionLoader: (location, localAddress) async {
+          expect(
+            location,
+            Uri.parse('http://192.168.254.31:49152/description.xml'),
+          );
+          expect(localAddress, '127.0.0.1');
+          return _pureKDescription;
+        },
+        logger: (_) {},
+      );
+      addTearDown(service.cancelDiscovery);
+
+      final devices = await service.discover(
+        responseWindow: const Duration(milliseconds: 25),
+      );
+
+      expect(devices, hasLength(1));
+      expect(devices.single.friendlyName, '纯K-K08');
+      expect(systemDiscovery.startCalls, 1);
+      expect(systemDiscovery.stopCalls, 1);
     });
 
     test('targets a renderer directly without changing multicast defaults', () {
@@ -361,18 +445,24 @@ void main() {
       );
     });
 
-    test('only accepts physical LAN HTTP URLs', () {
+    test('accepts routed IPv4 locations and rejects non-unicast targets', () {
       expect(
         () => DlnaHttpClient.validateLanUri(
-          Uri.parse('http://8.8.8.8/device.xml'),
+          Uri.parse('http://100.64.1.20/device.xml'),
+        ),
+        returnsNormally,
+      );
+      expect(
+        () => DlnaHttpClient.validateLanUri(
+          Uri.parse('http://127.0.0.1/device.xml'),
         ),
         throwsFormatException,
       );
       expect(
         () => DlnaHttpClient.validateLanUri(
-          Uri.parse('http://192.168.1.20/device.xml'),
+          Uri.parse('http://239.255.255.250/device.xml'),
         ),
-        returnsNormally,
+        throwsFormatException,
       );
     });
   });
@@ -620,6 +710,30 @@ DlnaDevice _device({
   );
 }
 
+class _FakeSystemDiscovery implements DlnaSystemDiscovery {
+  _FakeSystemDiscovery({required this.location, this.usn});
+
+  final Uri location;
+  final String? usn;
+  int startCalls = 0;
+  int stopCalls = 0;
+
+  @override
+  Future<bool> start({
+    required DlnaSystemDeviceAdded onDeviceAdded,
+    required DlnaSystemDeviceRemoved onDeviceRemoved,
+  }) async {
+    startCalls++;
+    onDeviceAdded(location, usn);
+    return true;
+  }
+
+  @override
+  Future<void> stop() async {
+    stopCalls++;
+  }
+}
+
 class _FakeDiscoveryService extends DlnaDiscoveryService {
   _FakeDiscoveryService(
     this.result, {
@@ -631,8 +745,13 @@ class _FakeDiscoveryService extends DlnaDiscoveryService {
 
   @override
   Future<List<DlnaDevice>> discover({
-    Duration responseWindow = const Duration(milliseconds: 2600),
+    Duration responseWindow = DlnaDiscoveryService.defaultResponseWindow,
+    DlnaDeviceDiscovered? onDevice,
+    DlnaDeviceRemoved? onDeviceRemoved,
   }) async {
+    for (final device in result) {
+      onDevice?.call(device);
+    }
     return result;
   }
 

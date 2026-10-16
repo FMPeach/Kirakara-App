@@ -82,6 +82,7 @@ class CastService extends ChangeNotifier {
     _isEnabled = false;
     _discoveryGeneration++;
     _isDiscovering = false;
+    _discoveryService.cancelDiscovery();
     await stopCast(showService: showService);
     _devices = const [];
     notifyListeners();
@@ -96,9 +97,45 @@ class CastService extends ChangeNotifier {
     final ssdpDevices = <DlnaDevice>[];
     final errors = <Object>[];
 
+    void publishDevices() {
+      if (!_isEnabled || generation != _discoveryGeneration) return;
+      _devices = DlnaDiscoveryService.deduplicateDevices([
+        ...ssdpDevices,
+        ..._manualDevices,
+      ]);
+      notifyListeners();
+    }
+
+    void addDevice(DlnaDevice device) {
+      final merged = DlnaDiscoveryService.deduplicateDevices([
+        ...ssdpDevices,
+        device,
+      ]);
+      ssdpDevices
+        ..clear()
+        ..addAll(merged);
+      publishDevices();
+    }
+
+    void removeDevice(String usn) {
+      final canonical = _canonicalUsn(usn);
+      if (canonical.isEmpty) return;
+      ssdpDevices.removeWhere((device) {
+        final identity = device.udn.isNotEmpty ? device.udn : device.id;
+        return _canonicalUsn(identity) == canonical;
+      });
+      publishDevices();
+    }
+
     Future<void> discoverSsdp() async {
       try {
-        ssdpDevices.addAll(await _discoveryService.discover());
+        final discovered = await _discoveryService.discover(
+          onDevice: addDevice,
+          onDeviceRemoved: removeDevice,
+        );
+        ssdpDevices
+          ..clear()
+          ..addAll(discovered);
       } catch (error) {
         errors.add(error);
         debugPrint('DLNA SSDP discovery failed: $error');
@@ -351,10 +388,14 @@ class CastService extends ChangeNotifier {
     _receiverStoppedPolls = 0;
   }
 
+  static String _canonicalUsn(String value) =>
+      value.trim().split('::').first.toLowerCase();
+
   @override
   void dispose() {
     _discoveryGeneration++;
     _sessionGeneration++;
+    _discoveryService.cancelDiscovery();
     _cancelReceiverMonitor();
     _activeShowService?.stopCastStream();
     _activeShowService = null;

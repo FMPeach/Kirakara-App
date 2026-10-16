@@ -63,13 +63,18 @@ class LanAddressResolver {
   }
 
   static Future<LanAddressCandidate?> detectIpv4Candidate() async {
+    final candidates = await detectIpv4Candidates();
+    return candidates.isEmpty ? null : candidates.first;
+  }
+
+  static Future<List<LanAddressCandidate>> detectIpv4Candidates() async {
     try {
       final interfaces = await NetworkInterface.list(
         type: InternetAddressType.IPv4,
         includeLoopback: false,
         includeLinkLocal: false,
       );
-      return selectIpv4Candidate(
+      return selectIpv4Candidates(
         interfaces.expand(
           (interface) => interface.addresses.map(
             (address) => LanAddressCandidate(
@@ -80,7 +85,7 @@ class LanAddressResolver {
         ),
       );
     } catch (_) {
-      return null;
+      return const [];
     }
   }
 
@@ -91,8 +96,18 @@ class LanAddressResolver {
   static LanAddressCandidate? selectIpv4Candidate(
     Iterable<LanAddressCandidate> candidates,
   ) {
+    final selected = selectIpv4Candidates(candidates);
+    return selected.isEmpty ? null : selected.first;
+  }
+
+  static List<LanAddressCandidate> selectIpv4Candidates(
+    Iterable<LanAddressCandidate> candidates,
+  ) {
     final ranked = <({LanAddressCandidate candidate, int score})>[];
+    final seen = <String>{};
     for (final candidate in candidates) {
+      final key = '${candidate.interfaceName}\u0000${candidate.address}';
+      if (!seen.add(key)) continue;
       final score = rankCandidate(
         interfaceName: candidate.interfaceName,
         address: candidate.address,
@@ -109,7 +124,7 @@ class LanAddressResolver {
       if (nameOrder != 0) return nameOrder;
       return left.candidate.address.compareTo(right.candidate.address);
     });
-    return ranked.isEmpty ? null : ranked.first.candidate;
+    return ranked.map((entry) => entry.candidate).toList(growable: false);
   }
 
   /// Returns a deterministic preference score, or -1 for a rejected adapter.

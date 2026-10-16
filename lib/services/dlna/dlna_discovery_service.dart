@@ -7,13 +7,18 @@ import '../lan_address_resolver.dart';
 import 'dlna_device.dart';
 import 'dlna_device_description_parser.dart';
 import 'dlna_http_client.dart';
+import 'windows_upnp_discovery_bridge.dart';
 
 typedef DlnaDescriptionLoader = Future<String> Function(
   Uri location,
   String localAddress,
 );
 typedef DlnaLocalInterfaceResolver = Future<LanAddressCandidate?> Function();
+typedef DlnaLocalInterfacesResolver = Future<List<DlnaDiscoveryInterface>>
+    Function();
 typedef DlnaDiscoveryLogger = void Function(String message);
+typedef DlnaDeviceDiscovered = void Function(DlnaDevice device);
+typedef DlnaDeviceRemoved = void Function(String usn);
 typedef DlnaUnicastSearch = Future<List<DlnaSsdpResponse>> Function(
   InternetAddress targetAddress,
   String localAddress,
@@ -27,6 +32,35 @@ class DlnaSsdpResponse {
   final String? usn;
 }
 
+enum DlnaSsdpMessageType {
+  searchResponse,
+  alive,
+  update,
+  byebye,
+}
+
+class DlnaSsdpMessage {
+  const DlnaSsdpMessage({
+    required this.type,
+    this.location,
+    this.usn,
+  });
+
+  final DlnaSsdpMessageType type;
+  final Uri? location;
+  final String? usn;
+}
+
+class DlnaDiscoveryInterface {
+  const DlnaDiscoveryInterface({
+    required this.candidate,
+    this.networkInterface,
+  });
+
+  final LanAddressCandidate candidate;
+  final NetworkInterface? networkInterface;
+}
+
 class DlnaDiscoveryException implements Exception {
   const DlnaDiscoveryException(this.message);
 
@@ -36,93 +70,333 @@ class DlnaDiscoveryException implements Exception {
   String toString() => message;
 }
 
+class _DlnaDiscoverySession {
+  final Completer<void> _cancelled = Completer<void>();
+
+  bool get isCancelled => _cancelled.isCompleted;
+  Future<void> get cancelled => _cancelled.future;
+
+  void cancel() {
+    if (!_cancelled.isCompleted) _cancelled.complete();
+  }
+}
+
 class DlnaDiscoveryService {
   DlnaDiscoveryService({
     DlnaDeviceDescriptionParser parser = const DlnaDeviceDescriptionParser(),
     DlnaDescriptionLoader? descriptionLoader,
     DlnaLocalInterfaceResolver? localInterfaceResolver,
+    DlnaLocalInterfacesResolver? localInterfacesResolver,
+    DlnaSystemDiscovery? systemDiscovery,
     DlnaUnicastSearch? unicastSearch,
     DlnaDiscoveryLogger? logger,
   })  : _parser = parser,
         _descriptionLoader = descriptionLoader ?? _loadDescription,
         _localInterfaceResolver =
             localInterfaceResolver ?? LanAddressResolver.detectIpv4Candidate,
+        _localInterfacesResolver = localInterfacesResolver ??
+            (localInterfaceResolver == null
+                ? _detectDiscoveryInterfaces
+                : () async {
+                    final candidate = await localInterfaceResolver();
+                    return candidate == null
+                        ? const []
+                        : [DlnaDiscoveryInterface(candidate: candidate)];
+                  }),
+        _systemDiscovery = systemDiscovery ?? WindowsUpnpDiscoveryBridge(),
         _unicastSearch = unicastSearch ?? _searchUnicast,
         _logger = logger ?? _defaultLog;
 
   static final InternetAddress _multicastAddress =
       InternetAddress('239.255.255.250');
   static const int _ssdpPort = 1900;
+  static const Duration defaultResponseWindow = Duration(seconds: 40);
   static const List<String> _searchTargets = [
     'urn:schemas-upnp-org:device:MediaRenderer:1',
     'ssdp:all',
   ];
 
   static const String multicastSource = 'ssdp-multicast';
+  static const String notifySource = 'ssdp-notify';
+  static const String windowsUpnpSource = 'windows-upnp';
   static const String unicastSource = 'ssdp-unicast';
   static const String manualUrlSource = 'manual-url';
 
   final DlnaDeviceDescriptionParser _parser;
   final DlnaDescriptionLoader _descriptionLoader;
   final DlnaLocalInterfaceResolver _localInterfaceResolver;
+  final DlnaLocalInterfacesResolver _localInterfacesResolver;
+  final DlnaSystemDiscovery _systemDiscovery;
   final DlnaUnicastSearch _unicastSearch;
   final DlnaDiscoveryLogger _logger;
+  _DlnaDiscoverySession? _activeDiscovery;
 
   Future<List<DlnaDevice>> discover({
-    Duration responseWindow = const Duration(milliseconds: 2600),
+    Duration responseWindow = defaultResponseWindow,
+    DlnaDeviceDiscovered? onDevice,
+    DlnaDeviceRemoved? onDeviceRemoved,
   }) async {
-    final localInterface = await _requireLocalInterface();
-    final socket = await RawDatagramSocket.bind(
-      InternetAddress(localInterface.address),
-      0,
-      reuseAddress: true,
-    );
-    socket.multicastHops = 4;
-    final responses = <Uri, String?>{};
-    final subscription = socket.listen((event) {
-      if (event != RawSocketEvent.read) return;
-      Datagram? datagram;
-      while ((datagram = socket.receive()) != null) {
-        final response = _parseDatagram(datagram!);
-        if (response == null) continue;
-        responses.putIfAbsent(response.location, () => response.usn);
-      }
-    });
-
-    try {
-      for (var pass = 0; pass < 2; pass++) {
-        for (final target in _searchTargets) {
-          socket.send(
-            ascii.encode(buildSearchRequest(target)),
-            _multicastAddress,
-            _ssdpPort,
-          );
-          await Future<void>.delayed(const Duration(milliseconds: 80));
-        }
-      }
-      await Future<void>.delayed(responseWindow);
-    } finally {
-      await subscription.cancel();
-      socket.close();
+    if (responseWindow <= Duration.zero) {
+      throw ArgumentError.value(
+        responseWindow,
+        'responseWindow',
+        'must be positive',
+      );
     }
 
+    cancelDiscovery();
+    final session = _DlnaDiscoverySession();
+    _activeDiscovery = session;
+    final subscriptions = <StreamSubscription<RawSocketEvent>>[];
+    final sockets = <RawDatagramSocket>[];
+    final searchChannels = <({
+      RawDatagramSocket socket,
+      DlnaDiscoveryInterface discoveryInterface,
+    })>[];
     final devices = <DlnaDevice>[];
-    await Future.wait(
-      responses.entries.map((entry) async {
-        try {
-          final device = await _loadDevice(
-            location: entry.key,
-            usn: entry.value,
-            localInterface: localInterface,
-            source: multicastSource,
-          );
-          devices.add(device);
-        } catch (_) {
-          // SSDP commonly returns routers and media servers for ssdp:all.
+    final acceptedKeys = <String>{};
+    final departedUdns = <String>{};
+    final pendingLoads = <String, Future<void>>{};
+    var systemDiscoveryStarted = false;
+
+    late final List<DlnaDiscoveryInterface> discoveryInterfaces;
+
+    void publishDevice(DlnaDevice device) {
+      final merged = deduplicateDevices([...devices, device]);
+      devices
+        ..clear()
+        ..addAll(merged);
+      onDevice?.call(device);
+    }
+
+    void handleByebye(String? usn) {
+      final canonical = _canonicalUdn(usn ?? '');
+      if (canonical.isEmpty) return;
+      departedUdns.add(canonical);
+      final removedLocations = devices
+          .where((device) => _canonicalUdn(device.udn) == canonical)
+          .map((device) => _locationKey(device.location))
+          .toList(growable: false);
+      devices.removeWhere(
+        (device) => _canonicalUdn(device.udn) == canonical,
+      );
+      acceptedKeys.remove('usn:$canonical');
+      for (final location in removedLocations) {
+        acceptedKeys.remove('location:$location');
+      }
+      onDeviceRemoved?.call(usn!);
+    }
+
+    void handleMessage(
+      DlnaSsdpMessage message, {
+      required String source,
+      DlnaDiscoveryInterface? preferredInterface,
+    }) {
+      if (message.type == DlnaSsdpMessageType.byebye) {
+        handleByebye(message.usn);
+        return;
+      }
+      final location = message.location;
+      if (location == null || session.isCancelled) return;
+      final canonicalUsn = _canonicalUdn(message.usn ?? '');
+      if (canonicalUsn.isNotEmpty) departedUdns.remove(canonicalUsn);
+      final key = canonicalUsn.isNotEmpty
+          ? 'usn:$canonicalUsn'
+          : 'location:${_locationKey(location)}';
+      if (acceptedKeys.contains(key) || pendingLoads.containsKey(key)) return;
+
+      late final Future<void> load;
+      load = _loadDeviceAcrossInterfaces(
+        location: location,
+        usn: message.usn,
+        source: source,
+        interfaces: discoveryInterfaces,
+        preferredInterface: preferredInterface,
+      ).then((device) {
+        if (session.isCancelled ||
+            (canonicalUsn.isNotEmpty && departedUdns.contains(canonicalUsn))) {
+          return;
         }
-      }),
-    );
+        acceptedKeys.add(key);
+        publishDevice(device);
+      }).catchError((Object _) {
+        // ssdp:all commonly returns non-renderers and stale descriptions.
+      }).whenComplete(() {
+        pendingLoads.remove(key);
+      });
+      pendingLoads[key] = load;
+    }
+
+    try {
+      discoveryInterfaces = await _requireDiscoveryInterfaces();
+      if (session.isCancelled) {
+        _activeDiscovery = null;
+        return const [];
+      }
+
+      try {
+        systemDiscoveryStarted = await _systemDiscovery.start(
+          onDeviceAdded: (location, usn) {
+            handleMessage(
+              DlnaSsdpMessage(
+                type: DlnaSsdpMessageType.alive,
+                location: location,
+                usn: usn,
+              ),
+              source: windowsUpnpSource,
+            );
+          },
+          onDeviceRemoved: handleByebye,
+        );
+        if (!systemDiscoveryStarted) {
+          _logger(
+            '[dlna-discovery] Windows UPnP listener unavailable; '
+            'using direct UDP fallback',
+          );
+        }
+      } catch (error) {
+        _logger(
+            '[dlna-discovery] Windows UPnP listener unavailable error=$error');
+      }
+
+      // Keep a direct socket as a fallback for platforms where no system SSDP
+      // service owns UDP 1900. On Windows, IUPnPDeviceFinder above is the
+      // reliable path because SSDPSRV normally receives directed NOTIFY first.
+      try {
+        final notifySocket = await RawDatagramSocket.bind(
+          InternetAddress.anyIPv4,
+          _ssdpPort,
+          reuseAddress: true,
+        );
+        sockets.add(notifySocket);
+        notifySocket.multicastLoopback = false;
+        for (final discoveryInterface in discoveryInterfaces) {
+          try {
+            notifySocket.joinMulticast(
+              _multicastAddress,
+              discoveryInterface.networkInterface,
+            );
+          } catch (error) {
+            _logger(
+              '[dlna-discovery] multicast join failed '
+              'interface=${jsonEncode(discoveryInterface.candidate.interfaceName)} '
+              'address=${jsonEncode(discoveryInterface.candidate.address)} '
+              'error=$error',
+            );
+          }
+        }
+        subscriptions.add(
+          notifySocket.listen((event) {
+            if (event != RawSocketEvent.read) return;
+            Datagram? datagram;
+            while ((datagram = notifySocket.receive()) != null) {
+              final message = _parseSsdpDatagram(datagram!);
+              if (message == null ||
+                  message.type == DlnaSsdpMessageType.searchResponse) {
+                continue;
+              }
+              handleMessage(message, source: notifySource);
+            }
+          }),
+        );
+      } catch (error) {
+        _logger(
+            '[dlna-discovery] direct UDP 1900 listener unavailable error=$error');
+      }
+
+      for (final discoveryInterface in discoveryInterfaces) {
+        try {
+          final socket = await RawDatagramSocket.bind(
+            InternetAddress(discoveryInterface.candidate.address),
+            0,
+            reuseAddress: true,
+          );
+          socket.multicastHops = 4;
+          sockets.add(socket);
+          searchChannels.add((
+            socket: socket,
+            discoveryInterface: discoveryInterface,
+          ));
+          subscriptions.add(
+            socket.listen((event) {
+              if (event != RawSocketEvent.read) return;
+              Datagram? datagram;
+              while ((datagram = socket.receive()) != null) {
+                final message = _parseSsdpDatagram(datagram!);
+                if (message == null ||
+                    message.type != DlnaSsdpMessageType.searchResponse) {
+                  continue;
+                }
+                handleMessage(
+                  message,
+                  source: multicastSource,
+                  preferredInterface: discoveryInterface,
+                );
+              }
+            }),
+          );
+        } catch (error) {
+          _logger(
+            '[dlna-discovery] M-SEARCH socket unavailable '
+            'interface=${jsonEncode(discoveryInterface.candidate.interfaceName)} '
+            'address=${jsonEncode(discoveryInterface.candidate.address)} '
+            'error=$error',
+          );
+        }
+      }
+
+      if (searchChannels.isEmpty && !systemDiscoveryStarted) {
+        throw const DlnaDiscoveryException('无法打开 DLNA SSDP 网络端口');
+      }
+
+      for (var pass = 0; pass < 2; pass++) {
+        for (final target in _searchTargets) {
+          final request = ascii.encode(buildSearchRequest(target));
+          for (final channel in searchChannels) {
+            try {
+              channel.socket.send(
+                request,
+                _multicastAddress,
+                _ssdpPort,
+              );
+            } catch (error) {
+              _logger(
+                '[dlna-discovery] M-SEARCH send failed '
+                'address=${jsonEncode(channel.discoveryInterface.candidate.address)} '
+                'error=$error',
+              );
+            }
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 80));
+          if (session.isCancelled) break;
+        }
+        if (session.isCancelled) break;
+      }
+      if (!session.isCancelled) {
+        await Future.any<void>([
+          Future<void>.delayed(responseWindow),
+          session.cancelled,
+        ]);
+      }
+    } finally {
+      for (final subscription in subscriptions) {
+        await subscription.cancel();
+      }
+      for (final socket in sockets) {
+        socket.close();
+      }
+      await _systemDiscovery.stop();
+      if (identical(_activeDiscovery, session)) _activeDiscovery = null;
+    }
+
+    if (!session.isCancelled && pendingLoads.isNotEmpty) {
+      await Future.wait(pendingLoads.values.toList(growable: false));
+    }
     return deduplicateDevices(devices);
+  }
+
+  void cancelDiscovery() {
+    _activeDiscovery?.cancel();
   }
 
   /// Resolves an explicitly supplied renderer URL or IPv4 address.
@@ -238,8 +512,60 @@ class DlnaDiscoveryService {
     if (lines.isEmpty || !lines.first.toUpperCase().contains('200 OK')) {
       return const {};
     }
+    return _parseHeaderLines(lines.skip(1));
+  }
+
+  static DlnaSsdpMessage? parseSsdpMessage(String packet) {
+    final lines = const LineSplitter().convert(packet);
+    if (lines.isEmpty) return null;
+    final startLine = lines.first.trim().toUpperCase();
+    final headers = _parseHeaderLines(lines.skip(1));
+
+    late final DlnaSsdpMessageType type;
+    if (startLine.contains('200 OK')) {
+      type = DlnaSsdpMessageType.searchResponse;
+    } else if (startLine == 'NOTIFY * HTTP/1.1') {
+      switch (headers['nts']?.toLowerCase()) {
+        case 'ssdp:alive':
+          type = DlnaSsdpMessageType.alive;
+        case 'ssdp:update':
+          type = DlnaSsdpMessageType.update;
+        case 'ssdp:byebye':
+          type = DlnaSsdpMessageType.byebye;
+        default:
+          return null;
+      }
+    } else {
+      return null;
+    }
+
+    final usnText = headers['usn']?.trim();
+    if (type == DlnaSsdpMessageType.byebye) {
+      return DlnaSsdpMessage(
+        type: type,
+        usn: usnText == null || usnText.isEmpty ? null : usnText,
+      );
+    }
+
+    final locationText = headers['location']?.trim();
+    if (locationText == null || locationText.isEmpty) return null;
+    final location = Uri.tryParse(locationText);
+    if (location == null) return null;
+    try {
+      DlnaHttpClient.validateLanUri(location);
+    } catch (_) {
+      return null;
+    }
+    return DlnaSsdpMessage(
+      type: type,
+      location: location,
+      usn: usnText == null || usnText.isEmpty ? null : usnText,
+    );
+  }
+
+  static Map<String, String> _parseHeaderLines(Iterable<String> lines) {
     final headers = <String, String>{};
-    for (final line in lines.skip(1)) {
+    for (final line in lines) {
       final separator = line.indexOf(':');
       if (separator <= 0) continue;
       final name = line.substring(0, separator).trim().toLowerCase();
@@ -257,6 +583,16 @@ class DlnaDiscoveryService {
       );
     }
     return localInterface;
+  }
+
+  Future<List<DlnaDiscoveryInterface>> _requireDiscoveryInterfaces() async {
+    final interfaces = await _localInterfacesResolver();
+    if (interfaces.isEmpty) {
+      throw const DlnaDiscoveryException(
+        '未找到可用的实体局域网 IPv4，请检查 Wi-Fi 或网线连接',
+      );
+    }
+    return interfaces;
   }
 
   Future<DlnaDevice> _loadDevice({
@@ -279,13 +615,47 @@ class DlnaDiscoveryService {
     return device;
   }
 
+  Future<DlnaDevice> _loadDeviceAcrossInterfaces({
+    required Uri location,
+    required String source,
+    required List<DlnaDiscoveryInterface> interfaces,
+    DlnaDiscoveryInterface? preferredInterface,
+    String? usn,
+  }) async {
+    final ordered = <DlnaDiscoveryInterface>[
+      if (preferredInterface != null) preferredInterface,
+      ...interfaces,
+    ];
+    final triedAddresses = <String>{};
+    Object? lastError;
+    for (final discoveryInterface in ordered) {
+      final localInterface = discoveryInterface.candidate;
+      if (!triedAddresses.add(localInterface.address)) continue;
+      try {
+        return await _loadDevice(
+          location: location,
+          localInterface: localInterface,
+          source: source,
+          usn: usn,
+        );
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError ?? DlnaDiscoveryException('无法通过可用局域网接口访问 $location');
+  }
+
   void _logDevice(
     DlnaDevice device, {
     required String source,
     required LanAddressCandidate localInterface,
   }) {
     final discoverySource = switch (source) {
-      multicastSource || unicastSource => 'ssdp',
+      multicastSource ||
+      notifySource ||
+      windowsUpnpSource ||
+      unicastSource =>
+        'ssdp',
       _ => source,
     };
     _logger(
@@ -327,18 +697,58 @@ class DlnaDiscoveryService {
   }
 
   static DlnaSsdpResponse? _parseDatagram(Datagram datagram) {
-    final packet = ascii.decode(datagram.data, allowInvalid: true);
-    final headers = parseResponseHeaders(packet);
-    final locationText = headers['location'];
-    if (locationText == null) return null;
-    final location = Uri.tryParse(locationText.trim());
-    if (location == null) return null;
-    try {
-      DlnaHttpClient.validateLanUri(location);
-    } catch (_) {
+    final message = _parseSsdpDatagram(datagram);
+    if (message == null ||
+        message.type != DlnaSsdpMessageType.searchResponse ||
+        message.location == null) {
       return null;
     }
-    return DlnaSsdpResponse(location: location, usn: headers['usn']);
+    return DlnaSsdpResponse(
+      location: message.location!,
+      usn: message.usn,
+    );
+  }
+
+  static DlnaSsdpMessage? _parseSsdpDatagram(Datagram datagram) {
+    return parseSsdpMessage(
+      ascii.decode(datagram.data, allowInvalid: true),
+    );
+  }
+
+  static Future<List<DlnaDiscoveryInterface>>
+      _detectDiscoveryInterfaces() async {
+    try {
+      final networkInterfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+        includeLinkLocal: false,
+      );
+      final candidates = <LanAddressCandidate>[];
+      final interfaceByCandidate = <String, NetworkInterface>{};
+      for (final networkInterface in networkInterfaces) {
+        for (final address in networkInterface.addresses) {
+          final candidate = LanAddressCandidate(
+            interfaceName: networkInterface.name,
+            address: address.address,
+          );
+          candidates.add(candidate);
+          interfaceByCandidate[
+                  '${candidate.interfaceName}\u0000${candidate.address}'] =
+              networkInterface;
+        }
+      }
+      return LanAddressResolver.selectIpv4Candidates(candidates)
+          .map(
+            (candidate) => DlnaDiscoveryInterface(
+              candidate: candidate,
+              networkInterface: interfaceByCandidate[
+                  '${candidate.interfaceName}\u0000${candidate.address}'],
+            ),
+          )
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    }
   }
 
   static Future<List<DlnaSsdpResponse>> _searchUnicast(

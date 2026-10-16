@@ -29,6 +29,7 @@ set_target_properties(kirakara_zinnia PROPERTIES
 # Any new source files that you add to the application should be added here.
 add_executable(${BINARY_NAME} WIN32
   "dcomp_compositor_bridge.cpp"
+  "dlna_discovery_bridge.cpp"
   "flutter_window.cpp"
   "ime_bridge.cpp"
   "main.cpp"
@@ -64,6 +65,7 @@ target_link_libraries(${BINARY_NAME} PRIVATE flutter flutter_wrapper_app)
 target_link_libraries(${BINARY_NAME} PRIVATE "dwmapi.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "d3d11.lib" "dxgi.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "advapi32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "ole32.lib" "oleaut32.lib" "uuid.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "winhttp.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "wtsapi32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE kirakara_zinnia)

@@ -21,6 +21,32 @@ void main() {
     expect(selected, '192.168.31.99');
   });
 
+  test('returns every usable interface in deterministic priority order', () {
+    final selected = LanAddressResolver.selectIpv4Candidates(const [
+      LanAddressCandidate(
+        interfaceName: 'Ethernet',
+        address: '10.0.0.8',
+      ),
+      LanAddressCandidate(
+        interfaceName: 'Radmin VPN',
+        address: '26.1.2.3',
+      ),
+      LanAddressCandidate(
+        interfaceName: 'WLAN',
+        address: '192.168.31.99',
+      ),
+      LanAddressCandidate(
+        interfaceName: 'Ethernet',
+        address: '10.0.0.8',
+      ),
+    ]);
+
+    expect(
+      selected.map((candidate) => candidate.address),
+      ['10.0.0.8', '192.168.31.99'],
+    );
+  });
+
   test('rejects VPN, tunnel, benchmark, and link-local addresses', () {
     expect(
       LanAddressResolver.rankCandidate(

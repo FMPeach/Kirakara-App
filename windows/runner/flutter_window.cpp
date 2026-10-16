@@ -5,6 +5,7 @@
 #include <wtsapi32.h>
 
 #include "dcomp_compositor_bridge.h"
+#include "dlna_discovery_bridge.h"
 #include "flutter/generated_plugin_registrant.h"
 #include "ime_bridge.h"
 #include "media_io_bridge.h"
@@ -69,6 +70,8 @@ bool FlutterWindow::OnCreate() {
   }
   UpdateCompositorWindowAvailability();
   RegisterPlugins(flutter_controller_->engine());
+  RegisterDlnaDiscoveryBridge(flutter_controller_->engine()->messenger(),
+                              GetHandle());
   RegisterImeBridge(flutter_controller_->engine()->messenger());
   RegisterMediaIoBridge(flutter_controller_->engine()->messenger());
   RegisterWindowBridge(flutter_controller_->engine()->messenger(),
@@ -107,6 +110,7 @@ bool FlutterWindow::OnCreate() {
 }
 
 void FlutterWindow::OnDestroy() {
+  ShutdownDlnaDiscoveryBridge();
   if (session_notifications_registered_) {
     ::WTSUnRegisterSessionNotification(GetHandle());
     session_notifications_registered_ = false;
@@ -147,6 +151,10 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   }
   if (message == kRefreshComposedStagePreviewMessage) {
     RefreshComposedStagePreview();
+    return 0;
+  }
+  if (message == kKirakaraDlnaDiscoveryEventMessage) {
+    DispatchDlnaDiscoveryEvents();
     return 0;
   }
   if (message == kKirakaraCompositorResizeForTestMessage) {
