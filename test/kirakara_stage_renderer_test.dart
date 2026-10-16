@@ -8,7 +8,6 @@ import 'package:kirakara_app/domain/queue_item.dart';
 import 'package:kirakara_app/domain/song.dart';
 import 'package:kirakara_app/engine/kirakara_stage_renderer.dart';
 import 'package:kirakara_app/engine/stage_renderer.dart';
-import 'package:kirakara_app/services/display_manager.dart';
 import 'package:kirakara_app/services/kirakara_show_service.dart';
 import 'package:kirakara_app/services/playback_service.dart';
 import 'package:kirakara_app/services/queue_service.dart';
@@ -70,20 +69,18 @@ void main() {
     );
   });
 
-  testWidgets('composed Stage preview can be invalidated without rebuilding',
+  testWidgets(
+      'composed Stage hole can be repainted without recycling the consumer',
       (tester) async {
     final queueService = QueueService();
     final playbackService = PlaybackService(queueService: queueService);
     final showService = KirakaraShowService(playbackService: playbackService);
-    final displayManager = DisplayManager();
     final textureController = _ComposedStageTextureController();
     final renderer = KirakaraStageRenderer(
       showService: showService,
-      displayManager: displayManager,
       stageTextureController: textureController,
     );
     addTearDown(() async {
-      displayManager.dispose();
       await showService.dispose();
       playbackService.dispose();
       queueService.dispose();
@@ -116,12 +113,8 @@ void main() {
 
     await renderer.invalidatePreviewComposition();
     expect(invalidationCount, 1);
-    expect(textureController.presentationRefreshCount, 0);
-
-    await displayManager.openStageWindow(preview: false);
     await renderer.invalidatePreviewComposition();
     expect(invalidationCount, 2);
-    expect(textureController.presentationRefreshCount, 1);
     await tester.pump();
     expect(find.byWidget(stage), findsOneWidget);
   }, skip: !Platform.isWindows);
@@ -135,20 +128,12 @@ class _ComposedStageTextureController extends StageTextureController {
           compositorChannel:
               const MethodChannel('kirakara/test_stage_renderer_compositor'),
         );
-
-  int presentationRefreshCount = 0;
-
   @override
   Future<StagePresentationAttachment?> attach(int hostHandle) async =>
       const StagePresentationAttachment.composed();
 
   @override
   Future<void> setActive(bool active) async {}
-
-  @override
-  Future<void> refreshComposedPresentation() async {
-    presentationRefreshCount++;
-  }
 
   @override
   Future<void> setComposedGeometry({

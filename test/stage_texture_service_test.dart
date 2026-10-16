@@ -90,7 +90,6 @@ void main() {
       fit: 'fill',
     );
     await controller.setActive(true);
-    await controller.refreshComposedPresentation();
     await controller.setActive(false);
     await controller.detach();
     expect((await controller.attach(1001))?.isComposed, isTrue);
@@ -101,7 +100,6 @@ void main() {
       'attachStage',
       'setStageGeometry',
       'setStageActive',
-      'refreshStagePresentation',
       'setStageActive',
       'detachStage',
       'getBackendInfo',

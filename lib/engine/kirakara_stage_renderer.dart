@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../domain/playback_state.dart';
-import '../services/display_manager.dart';
 import '../services/kirakara_show_service.dart';
 import '../services/stage_texture_service.dart';
 import 'stage_renderer.dart';
@@ -14,10 +13,8 @@ class KirakaraStageRenderer
     implements StageRenderer, StagePreviewCompositionController {
   KirakaraStageRenderer({
     required KirakaraShowService showService,
-    DisplayManager? displayManager,
     StageTextureController? stageTextureController,
   })  : _showService = showService,
-        _displayManager = displayManager,
         _stageTextureController =
             stageTextureController ?? StageTextureController() {
     _stageTextureController.onPreviewSurfaceInvalidated =
@@ -30,7 +27,6 @@ class KirakaraStageRenderer
   }
 
   final KirakaraShowService _showService;
-  final DisplayManager? _displayManager;
   final StageTextureController _stageTextureController;
   final _StagePreviewRepaintSignal _previewRepaint =
       _StagePreviewRepaintSignal();
@@ -39,11 +35,9 @@ class KirakaraStageRenderer
   @override
   Future<void> invalidatePreviewComposition() async {
     if (!Platform.isWindows) return;
-    if (_displayManager?.mode == DisplayMode.dualScreen) {
-      await _stageTextureController.refreshComposedPresentation();
-      _previewRepaint.pulse();
-      return;
-    }
+    // Only replay the transparent clear operation on Flutter's upper surface.
+    // The lower Stage Visual remains attached throughout; recycling that
+    // consumer creates a visible one-frame gap after moves and modal routes.
     _previewRepaint.pulse();
   }
 

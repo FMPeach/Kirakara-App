@@ -833,49 +833,6 @@ struct DcompCompositorBridge::Impl {
     return ApplyStageActivityLocked(error);
   }
 
-  bool RefreshStagePresentation(std::string *error) {
-    std::scoped_lock lock(stage_source_mutex);
-    if (!stage_source || !show_api_available || !view ||
-        shutting_down.load(std::memory_order_acquire)) {
-      *error = "No composed Stage Visual source is attached.";
-      return false;
-    }
-
-    const bool should_be_active =
-        stage_requested_active.load(std::memory_order_acquire) &&
-        window_available.load(std::memory_order_acquire) &&
-        stage_geometry_visible.load(std::memory_order_acquire);
-    if (!should_be_active) {
-      return true;
-    }
-
-    // Recycle only the controller preview consumer. The physical Stage is a
-    // separate Show sink and keeps presenting throughout this transition.
-    // Quiescing Show first also abandons any keyed-mutex resource retained by
-    // the stale Engine consumer before that lower Visual is detached.
-    stage_active.store(false, std::memory_order_release);
-    show_api.set_active(stage_source, false);
-    const int32_t detach_result =
-        api.detach_stage(reinterpret_cast<uintptr_t>(view));
-
-    // Publish callback eligibility before re-enabling Show. Reactivation asks
-    // Show for a fresh resource generation and one notification even when the
-    // media is paused or otherwise holding a static frame.
-    stage_active.store(true, std::memory_order_release);
-    show_api.set_active(stage_source, true);
-
-    stage_presentation_refresh_count.fetch_add(1,
-                                               std::memory_order_relaxed);
-    last_stage_presentation_refresh_result.store(detach_result,
-                                                 std::memory_order_relaxed);
-    if (detach_result != kKirakaraFlutterCompositorSuccess) {
-      *error = "The Engine could not recycle the composed Stage Visual: " +
-               ResultName(detach_result) + ".";
-      return false;
-    }
-    return true;
-  }
-
   bool SetWindowAvailability(bool available, std::string *error) {
     std::scoped_lock lock(stage_source_mutex);
     window_available.store(available, std::memory_order_release);
@@ -966,13 +923,6 @@ struct DcompCompositorBridge::Impl {
         {EncodableValue("lastSubmitResult"),
          EncodableValue(
              last_stage_submit_result.load(std::memory_order_relaxed))},
-        {EncodableValue("presentationRefreshCount"),
-         EncodableValue(static_cast<int64_t>(
-             stage_presentation_refresh_count.load(
-                 std::memory_order_relaxed)))},
-        {EncodableValue("lastPresentationRefreshResult"),
-         EncodableValue(last_stage_presentation_refresh_result.load(
-             std::memory_order_relaxed))},
     };
     if (stage_source && show_api_available) {
       ShowHostStageVisualStats stats{};
@@ -1115,20 +1065,6 @@ struct DcompCompositorBridge::Impl {
         std::string error;
         if (!SetStageGeometry(call.arguments(), &error)) {
           result->Error("dcomp_stage_geometry_failed", error);
-          return;
-        }
-        result->Success(EncodableValue(true));
-        return;
-      }
-      if (call.method_name() == "refreshStagePresentation") {
-        if (backend != "composed") {
-          result->Error("dcomp_stage_backend_unavailable",
-                        "The active compositor backend is not composed.");
-          return;
-        }
-        std::string error;
-        if (!RefreshStagePresentation(&error)) {
-          result->Error("dcomp_stage_refresh_failed", error);
           return;
         }
         result->Success(EncodableValue(true));
@@ -1497,9 +1433,6 @@ struct DcompCompositorBridge::Impl {
   std::atomic_uint64_t stage_callback_count{};
   std::atomic_uint64_t stage_callback_rejected_count{};
   std::atomic_int32_t last_stage_submit_result{
-      kKirakaraFlutterCompositorSuccess};
-  std::atomic_uint64_t stage_presentation_refresh_count{};
-  std::atomic_int32_t last_stage_presentation_refresh_result{
       kKirakaraFlutterCompositorSuccess};
   std::mutex stage_source_mutex;
 };

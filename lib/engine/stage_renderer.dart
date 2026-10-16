@@ -33,9 +33,9 @@ abstract class StageRenderer {
 ///
 /// Removing a native dialog/overlay or finishing a top-level window move can
 /// invalidate the alpha contents of Flutter's upper swapchain without changing
-/// the Stage widget's layout. Implementations use this hook to repair the
-/// composed preview consumer and repaint the transparent slot once; it must not
-/// start a continuous frame pump.
+/// the Stage widget's layout. Implementations use this hook to repaint the
+/// transparent slot once without recycling the lower Stage consumer; it must
+/// not start a continuous frame pump.
 abstract interface class StagePreviewCompositionController {
   Future<void> invalidatePreviewComposition();
 }
