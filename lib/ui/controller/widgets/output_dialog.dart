@@ -4,7 +4,6 @@ class _OutputDialog extends StatefulWidget {
   const _OutputDialog({
     required this.displayManager,
     required this.castService,
-    required this.settingsService,
     required this.onDualChanged,
     required this.onCastChanged,
     required this.onDisplaySelected,
@@ -14,7 +13,6 @@ class _OutputDialog extends StatefulWidget {
 
   final DisplayManager displayManager;
   final CastService castService;
-  final SettingsService settingsService;
   final Future<void> Function(bool enabled) onDualChanged;
   final Future<void> Function(bool enabled) onCastChanged;
   final Future<void> Function(DisplayInfo display) onDisplaySelected;
@@ -207,9 +205,7 @@ class _OutputDialogState extends State<_OutputDialog> {
       refreshing: discovering,
       onRefresh: _busy || connecting || discovering
           ? null
-          : () => widget.castService.refreshDevices(
-                includePureK: widget.settingsService.dlnaDeepSearchEnabled,
-              ),
+          : widget.castService.refreshDevices,
       children: [
         if (devices.isNotEmpty)
           for (final device in devices)

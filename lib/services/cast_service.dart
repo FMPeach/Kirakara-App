@@ -66,14 +66,14 @@ class CastService extends ChangeNotifier {
   String? get mpegTsUrl => _mpegTsUrl;
   String? get lastError => _lastError;
 
-  Future<void> enableCastMode({bool includePureK = false}) async {
+  Future<void> enableCastMode() async {
     if (!_isEnabled) {
       _isEnabled = true;
       _lastError = null;
       _devices = DlnaDiscoveryService.deduplicateDevices(_manualDevices);
       notifyListeners();
     }
-    await refreshDevices(includePureK: includePureK);
+    await refreshDevices();
   }
 
   Future<void> disableCastMode({
@@ -87,14 +87,13 @@ class CastService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> refreshDevices({bool includePureK = false}) async {
+  Future<void> refreshDevices() async {
     if (!_isEnabled || _isDiscovering) return;
     final generation = ++_discoveryGeneration;
     _isDiscovering = true;
     _lastError = null;
     notifyListeners();
     final ssdpDevices = <DlnaDevice>[];
-    final pureKDevices = <DlnaDevice>[];
     final errors = <Object>[];
 
     Future<void> discoverSsdp() async {
@@ -106,30 +105,14 @@ class CastService extends ChangeNotifier {
       }
     }
 
-    Future<void> discoverPureK() async {
-      try {
-        pureKDevices.addAll(
-          await _discoveryService.discoverPureKRenderers(),
-        );
-      } catch (error) {
-        errors.add(error);
-        debugPrint('Pure K HTTP discovery failed: $error');
-      }
-    }
-
     try {
-      await Future.wait([
-        discoverSsdp(),
-        if (includePureK) discoverPureK(),
-      ]);
+      await discoverSsdp();
       if (!_isEnabled || generation != _discoveryGeneration) return;
       _devices = DlnaDiscoveryService.deduplicateDevices([
         ...ssdpDevices,
-        ...pureKDevices,
         ..._manualDevices,
       ]);
-      final requestedSources = includePureK ? 2 : 1;
-      if (errors.length == requestedSources) {
+      if (errors.isNotEmpty) {
         _lastError = errors.map((error) => error.toString()).join('\n');
       }
     } finally {

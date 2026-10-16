@@ -1,11 +1,10 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kirakara_app/services/settings_service.dart';
 
 void main() {
-  test('DLNA deep search defaults off and persists explicit changes', () async {
+  test('obsolete DLNA deep search setting is ignored', () async {
     final directory = Directory.systemTemp.createTempSync(
       'kirakara_settings_test',
     );
@@ -19,24 +18,19 @@ void main() {
     final settingsPath =
         '${directory.path}${Platform.pathSeparator}settings.json';
 
-    final initial = SettingsService(
+    File(settingsPath).writeAsStringSync(
+      '{"dlna_deep_search_enabled":true}',
+    );
+    final settings = SettingsService(
       initialCacheDirectoryPath: directory.path,
       settingsFilePath: settingsPath,
     );
-    await initial.load();
-    expect(initial.dlnaDeepSearchEnabled, isFalse);
-
-    await initial.setDlnaDeepSearchEnabled(true);
-    final stored = jsonDecode(File(settingsPath).readAsStringSync()) as Map;
-    expect(stored['dlna_deep_search_enabled'], isTrue);
-    initial.dispose();
-
-    final reloaded = SettingsService(
-      initialCacheDirectoryPath: directory.path,
-      settingsFilePath: settingsPath,
+    await settings.load();
+    await settings.setCustomAnnouncement('测试');
+    expect(
+      File(settingsPath).readAsStringSync(),
+      isNot(contains('dlna_deep_search_enabled')),
     );
-    await reloaded.load();
-    expect(reloaded.dlnaDeepSearchEnabled, isTrue);
-    reloaded.dispose();
+    settings.dispose();
   });
 }

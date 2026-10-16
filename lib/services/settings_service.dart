@@ -15,19 +15,16 @@ class SettingsService extends ChangeNotifier {
   static const _customAnnouncementKey = 'custom_announcement';
   static const _prefetchLookaheadKey = 'prefetch_lookahead';
   static const _cacheDirectoryKey = 'cache_directory';
-  static const _dlnaDeepSearchKey = 'dlna_deep_search_enabled';
 
   final String _settingsFilePath;
   bool _disposed = false;
   String _customAnnouncement = '';
   int _prefetchLookahead = 3;
   String _cacheDirectoryPath;
-  bool _dlnaDeepSearchEnabled = false;
 
   String get customAnnouncement => _customAnnouncement;
   int get prefetchLookahead => _prefetchLookahead;
   String get cacheDirectoryPath => _cacheDirectoryPath;
-  bool get dlnaDeepSearchEnabled => _dlnaDeepSearchEnabled;
 
   // ── settings/settings.json 读写 ────────────────────────────────
 
@@ -41,7 +38,6 @@ class SettingsService extends ChangeNotifier {
           _customAnnouncementKey: _customAnnouncement,
           _prefetchLookaheadKey: _prefetchLookahead,
           _cacheDirectoryKey: _cacheDirectoryPath,
-          _dlnaDeepSearchKey: _dlnaDeepSearchEnabled,
         }),
         flush: true,
       );
@@ -100,7 +96,6 @@ class SettingsService extends ChangeNotifier {
     if (cacheDirectory.isNotEmpty) {
       _cacheDirectoryPath = cacheDirectory;
     }
-    _dlnaDeepSearchEnabled = stored[_dlnaDeepSearchKey] == true;
     if (!_disposed) notifyListeners();
   }
 
@@ -124,13 +119,6 @@ class SettingsService extends ChangeNotifier {
     final normalized = value.trim();
     if (normalized.isEmpty || _cacheDirectoryPath == normalized) return;
     _cacheDirectoryPath = normalized;
-    if (!_disposed) notifyListeners();
-    _write();
-  }
-
-  Future<void> setDlnaDeepSearchEnabled(bool value) async {
-    if (_dlnaDeepSearchEnabled == value) return;
-    _dlnaDeepSearchEnabled = value;
     if (!_disposed) notifyListeners();
     _write();
   }

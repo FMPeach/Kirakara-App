@@ -557,7 +557,6 @@ class _ControllerScreenState extends State<ControllerScreen> {
       builder: (context) => _OutputDialog(
         displayManager: widget.displayManager,
         castService: widget.castService,
-        settingsService: widget.settingsService,
         onDualChanged: _setDualOutputEnabled,
         onCastChanged: _setCastModeEnabled,
         onDisplaySelected: _selectStageDisplay,
@@ -588,9 +587,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
       return;
     }
     if (_hasStageOutput) await _closeStageOutput();
-    await widget.castService.enableCastMode(
-      includePureK: widget.settingsService.dlnaDeepSearchEnabled,
-    );
+    await widget.castService.enableCastMode();
   }
 
   Future<void> _selectStageDisplay(DisplayInfo display) async {

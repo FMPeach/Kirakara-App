@@ -241,39 +241,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     ]);
   }
 
-  Widget _buildCastSection() {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      const _SectionHeader(title: '投屏', icon: Icons.cast_outlined),
-      const SizedBox(height: 4),
-      ListTile(
-        contentPadding: EdgeInsets.zero,
-        title: const Text(
-          '深度搜索（慎用）',
-          style: TextStyle(
-            color: KiraColors.cream,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        subtitle: const Text(
-          '搜索 DLNA 设备时额外探测固定网络范围，可能延长搜索时间',
-          style: TextStyle(color: KiraColors.muted, fontSize: 11),
-        ),
-        trailing: Switch(
-          key: const ValueKey('dlna-deep-search-switch'),
-          value: widget.settingsService.dlnaDeepSearchEnabled,
-          onChanged: (enabled) async {
-            await widget.settingsService.setDlnaDeepSearchEnabled(enabled);
-            if (mounted) setState(() {});
-          },
-          activeThumbColor: Colors.white,
-          activeTrackColor: KiraColors.red,
-          inactiveThumbColor: const Color(0xffbfc0c6),
-          inactiveTrackColor: const Color(0xff303137),
-        ),
-      ),
-    ]);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Dialog(
@@ -316,8 +283,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                       _buildAnnouncementSection(),
                       const Divider(height: 32, color: KiraColors.line),
                       _buildLanSection(),
-                      const Divider(height: 32, color: KiraColors.line),
-                      _buildCastSection(),
                       const Divider(height: 32, color: KiraColors.line),
                       _buildCacheSection(),
                     ],

@@ -85,11 +85,7 @@ void main() {
     await tester.tap(find.byTooltip('设置'));
     await tester.pump();
     expect(find.text('报幕文字'), findsOneWidget);
-    expect(find.text('深度搜索（慎用）'), findsOneWidget);
-    final deepSearchSwitch = tester.widget<Switch>(
-      find.byKey(const ValueKey('dlna-deep-search-switch')),
-    );
-    expect(deepSearchSwitch.value, isFalse);
+    expect(find.text('深度搜索（慎用）'), findsNothing);
     expect(find.text('媒体缓存'), findsOneWidget);
     expect(find.text('队列预缓存范围'), findsOneWidget);
   });
