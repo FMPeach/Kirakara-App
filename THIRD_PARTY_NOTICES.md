@@ -84,3 +84,6 @@ librime 官方二进制和仓库中的源码维护轨道不是同一份构建产
 
 Kirakara Show 是单独构建和维护的项目，不属于本仓库的第三方源码。发布者如果将 Show
 DLL 与 Kirakara-App 一起分发，应同时保留 Show 仓库及其依赖要求的许可证与声明。
+
+ChunK Helper 同样独立开发，其自有代码采用 MIT。随 App 分发的工具、运行时及相关声明保留在
+`tools/ChunKHelper/`，许可证以该目录中随附的 `LICENSE`、`THIRD_PARTY_NOTICES.md` 和 `licenses/` 为准。

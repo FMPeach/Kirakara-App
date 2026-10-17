@@ -20,7 +20,14 @@ Copy-Item .\config\kirakara.local.example.json `
   .\config\kirakara.local.json
 ```
 
-这个配置只属于当前电脑，不会提交到 Git。准备依赖并运行应用：
+这个配置只属于当前电脑，不会提交到 Git。
+
+需要测试“纯K助手”入口时，先在 [ChunK-Helper](https://github.com/FMPeach/ChunK-Helper)
+仓库发布工具，将 `windows.chunkHelperDirectory` 指向发布目录。构建时会复制到
+`tools/ChunKHelper/`；
+助手为独立开发，只参与其他功能开发时可省略这个配置。
+
+准备依赖并运行应用：
 
 ```powershell
 .\flutterw pub get

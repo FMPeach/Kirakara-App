@@ -3071,6 +3071,10 @@ function Invoke-KirakaraFlutter {
   if ($plan.injectEngine) {
     $showHost = Resolve-KirakaraShowHostInput
     $env:KIRAKARA_SHOW_HOST_DLL = $showHost.path
+    Import-Module (Join-Path $PSScriptRoot 'chunk_helper_input.psm1') -Force -DisableNameChecking
+    $helper = Resolve-KirakaraChunKHelperInput -Optional
+    if ($null -ne $helper) { $env:KIRAKARA_CHUNK_HELPER_ROOT = $helper.root }
+    else { Remove-Item Env:\KIRAKARA_CHUNK_HELPER_ROOT -ErrorAction SilentlyContinue }
   }
   # Fail before SDK preparation if the selected prebuilt package is unavailable.
   $engine=$null

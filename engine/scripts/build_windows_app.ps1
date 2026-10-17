@@ -94,6 +94,10 @@ foreach ($entry in Get-ChildItem Env:) { $environmentBefore[$entry.Name]=$entry.
 Push-Location (Get-AppRepositoryRoot)
 try {
   $env:KIRAKARA_SHOW_HOST_DLL = $showHost.path
+  Import-Module (Join-Path $PSScriptRoot 'chunk_helper_input.psm1') -DisableNameChecking
+  $helper = Resolve-KirakaraChunKHelperInput -Optional
+  if ($null -ne $helper) { $env:KIRAKARA_CHUNK_HELPER_ROOT = $helper.root }
+  else { Remove-Item Env:\KIRAKARA_CHUNK_HELPER_ROOT -ErrorAction SilentlyContinue }
   # The retained official/local A/B build entry must use the same isolated
   # caches as flutterw; running a separate official Engine is not permission
   # to write into the user's pub cache or global Flutter user state.

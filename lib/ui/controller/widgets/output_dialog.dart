@@ -234,14 +234,19 @@ class _OutputDialogState extends State<_OutputDialog> {
           ),
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 12, 4, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: OutlinedButton.icon(
-              key: const ValueKey('manual-dlna-add-button'),
-              onPressed: _busy || connecting ? null : _showManualRendererDialog,
-              icon: const Icon(Icons.add_link),
-              label: const Text('手动添加 DLNA 设备'),
-            ),
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                key: const ValueKey('manual-dlna-add-button'),
+                onPressed:
+                    _busy || connecting ? null : _showManualRendererDialog,
+                icon: const Icon(Icons.add_link),
+                label: const Text('手动添加 DLNA 设备'),
+              ),
+              ChunKHelperButton(enabled: !_busy && !connecting),
+            ],
           ),
         ),
         if (widget.castService.lastError != null)

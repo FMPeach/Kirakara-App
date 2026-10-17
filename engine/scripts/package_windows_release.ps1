@@ -8,6 +8,8 @@ param(
 
   [string]$ShowHostDll,
 
+  [string]$ChunKHelperDirectory,
+
   [string]$OutputDirectory,
 
   [string]$WindowsSdkPath = 'C:\Program Files (x86)\Windows Kits\10',
@@ -20,6 +22,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'release_contract.ps1')
 Import-Module (Join-Path $PSScriptRoot 'show_host_input.psm1') `
   -DisableNameChecking
+Import-Module (Join-Path $PSScriptRoot 'chunk_helper_input.psm1') -DisableNameChecking
 
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -125,6 +128,7 @@ $lock = Get-EngineLock
 $flutterRoot = Resolve-UnresolvedPath $FlutterSdkRoot
 $showHost = Resolve-KirakaraShowHostInput -Path $ShowHostDll
 $showDll = $showHost.path
+$helper = Resolve-KirakaraChunKHelperInput -Directory $ChunKHelperDirectory
 $showAbi = [pscustomobject]@{
   dllSha256 = [string]$showHost.sha256
   dllSize = [int64]$showHost.size
@@ -172,6 +176,15 @@ Assert-MatchingFile `
   -ExpectedPath $showDll `
   -ActualPath (Join-Path $bundle 'libshow_host.dll') `
   -Label 'Release Show host DLL'
+foreach ($helperFile in Get-ChildItem -LiteralPath $helper.root -File -Recurse) {
+  $relative = [IO.Path]::GetRelativePath($helper.root, $helperFile.FullName)
+  if ($relative -match '(^|[\\/])(logs|settings)([\\/]|$)' -or
+      $helperFile.Extension -in '.log', '.pdb', '.dmp', '.etl') { continue }
+  Assert-MatchingFile `
+    -ExpectedPath $helperFile.FullName `
+    -ActualPath (Join-Path $bundle ('tools/ChunKHelper/' + $relative)) `
+    -Label ('Release ChunK Helper: ' + $relative)
+}
 Assert-WindowsAppDpiAwarenessDisabled `
   -Lock $lock `
   -Executable $executable `
@@ -278,7 +291,8 @@ try {
   }
 
   foreach ($required in 'kirakara_app.exe', 'flutter_windows.dll', 'libshow_host.dll',
-      'data\app.so', 'data\icudtl.dat', 'data\flutter_assets\NOTICES.Z') {
+      'data\app.so', 'data\icudtl.dat', 'data\flutter_assets\NOTICES.Z',
+      'tools\ChunKHelper\ChunK Helper.exe') {
     $requiredPath = Join-Path $bundle $required
     if (-not $selected.Contains($requiredPath)) {
       throw "Release selection is missing required file: $required"
