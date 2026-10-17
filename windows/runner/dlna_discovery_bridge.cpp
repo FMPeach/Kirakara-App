@@ -1,4 +1,5 @@
 #include "dlna_discovery_bridge.h"
+#include "dlna_network_route.h"
 
 #include <flutter/encodable_value.h>
 #include <flutter/method_channel.h>
@@ -231,6 +232,30 @@ class DlnaDiscoveryBridge {
     state_->message_window = message_window;
     channel_->SetMethodCallHandler(
         [this](const MethodCall& call, std::unique_ptr<MethodResult> result) {
+          if (call.method_name() == "resolveLocalAddress") {
+            const auto* value = call.arguments();
+            const auto* arguments =
+                value ? std::get_if<EncodableMap>(value) : nullptr;
+            if (!arguments) {
+              result->Error("invalid_arguments", "Expected a renderer host");
+              return;
+            }
+            const auto entry = arguments->find(EncodableValue("host"));
+            const auto* host = entry == arguments->end()
+                                   ? nullptr
+                                   : std::get_if<std::string>(&entry->second);
+            if (!host) {
+              result->Error("invalid_arguments", "Expected an IPv4 host");
+              return;
+            }
+            const auto address = ResolveDlnaLocalAddress(*host);
+            if (address) {
+              result->Success(EncodableValue(*address));
+            } else {
+              result->Success();
+            }
+            return;
+          }
           if (call.method_name() == "startDiscovery") {
             result->Success(EncodableValue(Start()));
             return;

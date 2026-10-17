@@ -30,6 +30,7 @@ set_target_properties(kirakara_zinnia PROPERTIES
 add_executable(${BINARY_NAME} WIN32
   "dcomp_compositor_bridge.cpp"
   "dlna_discovery_bridge.cpp"
+  "dlna_network_route.cpp"
   "flutter_window.cpp"
   "ime_bridge.cpp"
   "main.cpp"
@@ -67,6 +68,7 @@ target_link_libraries(${BINARY_NAME} PRIVATE "d3d11.lib" "dxgi.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "advapi32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "ole32.lib" "oleaut32.lib" "uuid.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "winhttp.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "iphlpapi.lib" "ws2_32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "wtsapi32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE kirakara_zinnia)
 target_include_directories(${BINARY_NAME} PRIVATE

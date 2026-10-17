@@ -31,6 +31,18 @@ class WindowsUpnpDiscoveryBridge implements DlnaSystemDiscovery {
   DlnaSystemDeviceRemoved? _onDeviceRemoved;
   bool _active = false;
 
+  static Future<String?> resolveLocalAddress(Uri location) async {
+    if (!Platform.isWindows) return null;
+    try {
+      return await const MethodChannel('kirakara/dlna_discovery')
+          .invokeMethod<String>('resolveLocalAddress', {'host': location.host});
+    } on MissingPluginException {
+      return null;
+    } on PlatformException {
+      return null;
+    }
+  }
+
   @override
   Future<bool> start({
     required DlnaSystemDeviceAdded onDeviceAdded,

@@ -19,6 +19,7 @@ typedef DlnaLocalInterfacesResolver = Future<List<DlnaDiscoveryInterface>>
 typedef DlnaDiscoveryLogger = void Function(String message);
 typedef DlnaDeviceDiscovered = void Function(DlnaDevice device);
 typedef DlnaDeviceRemoved = void Function(String usn);
+typedef DlnaTargetAddressResolver = Future<String?> Function(Uri location);
 typedef DlnaUnicastSearch = Future<List<DlnaSsdpResponse>> Function(
   InternetAddress targetAddress,
   String localAddress,
@@ -85,13 +86,16 @@ class DlnaDiscoveryService {
   DlnaDiscoveryService({
     DlnaDeviceDescriptionParser parser = const DlnaDeviceDescriptionParser(),
     DlnaDescriptionLoader? descriptionLoader,
+    DlnaTargetAddressResolver? targetAddressResolver,
     DlnaLocalInterfaceResolver? localInterfaceResolver,
     DlnaLocalInterfacesResolver? localInterfacesResolver,
     DlnaSystemDiscovery? systemDiscovery,
     DlnaUnicastSearch? unicastSearch,
     DlnaDiscoveryLogger? logger,
   })  : _parser = parser,
-        _descriptionLoader = descriptionLoader ?? _loadDescription,
+        _descriptionLoader = descriptionLoader,
+        _targetAddressResolver = targetAddressResolver ??
+            WindowsUpnpDiscoveryBridge.resolveLocalAddress,
         _localInterfaceResolver =
             localInterfaceResolver ?? LanAddressResolver.detectIpv4Candidate,
         _localInterfacesResolver = localInterfacesResolver ??
@@ -123,7 +127,8 @@ class DlnaDiscoveryService {
   static const String manualUrlSource = 'manual-url';
 
   final DlnaDeviceDescriptionParser _parser;
-  final DlnaDescriptionLoader _descriptionLoader;
+  final DlnaDescriptionLoader? _descriptionLoader;
+  final DlnaTargetAddressResolver _targetAddressResolver;
   final DlnaLocalInterfaceResolver _localInterfaceResolver;
   final DlnaLocalInterfacesResolver _localInterfacesResolver;
   final DlnaSystemDiscovery _systemDiscovery;
@@ -259,9 +264,9 @@ class DlnaDiscoveryService {
             '[dlna-discovery] Windows UPnP listener unavailable error=$error');
       }
 
-      // Keep a direct socket as a fallback for platforms where no system SSDP
-      // service owns UDP 1900. On Windows, IUPnPDeviceFinder above is the
-      // reliable path because SSDPSRV normally receives directed NOTIFY first.
+      // Multicast can be shared with the system SSDP service. Reusing UDP 1900
+      // does not guarantee a copy of directed unicast: Windows may deliver it
+      // only to SSDPSRV, whose device finder may not surface that advertisement.
       try {
         final notifySocket = await RawDatagramSocket.bind(
           InternetAddress.anyIPv4,
@@ -269,7 +274,11 @@ class DlnaDiscoveryService {
           reuseAddress: true,
         );
         sockets.add(notifySocket);
-        notifySocket.multicastLoopback = false;
+        // Winsock applies this option to reception: local UPnP publishers
+        // (such as ChunK Helper) must be allowed to reach this listener.
+        // This socket exists only for this refresh session; finally closes it.
+        // Our own M-SEARCH packets are ignored by the NOTIFY parser below.
+        notifySocket.multicastLoopback = true;
         for (final discoveryInterface in discoveryInterfaces) {
           try {
             notifySocket.joinMulticast(
@@ -601,17 +610,31 @@ class DlnaDiscoveryService {
     required String source,
     String? usn,
   }) async {
-    final description = await _descriptionLoader(
-      location,
-      localInterface.address,
-    );
+    final loader = _descriptionLoader;
+    final String description;
+    var sourceInterface = localInterface;
+    if (loader != null) {
+      description = await loader(location, localInterface.address);
+    } else {
+      // Discovery's preferred LAN interface need not carry the route to this
+      // LOCATION. Ask Windows for its source address instead of binding HTTP
+      // and the advertised stream URL to an unrelated physical adapter.
+      final address = await _targetAddressResolver(location);
+      if (address != null && address != localInterface.address) {
+        sourceInterface = await _interfaceForAddress(address);
+      }
+      description = await DlnaHttpClient.getText(
+        location,
+        localAddress: sourceInterface.address,
+      );
+    }
     final device = _parser.parse(
       description,
       location: location,
-      localAddress: localInterface.address,
+      localAddress: sourceInterface.address,
       usn: usn,
     );
-    _logDevice(device, source: source, localInterface: localInterface);
+    _logDevice(device, source: source, localInterface: sourceInterface);
     return device;
   }
 
@@ -793,14 +816,25 @@ class DlnaDiscoveryService {
     return responses.values.toList();
   }
 
-  static Future<String> _loadDescription(
-    Uri location,
-    String localAddress,
-  ) {
-    return DlnaHttpClient.getText(
-      location,
-      localAddress: localAddress,
-    );
+  static Future<LanAddressCandidate> _interfaceForAddress(
+      String address) async {
+    try {
+      final interfaces = await NetworkInterface.list(
+        type: InternetAddressType.IPv4,
+        includeLoopback: false,
+      );
+      for (final networkInterface in interfaces) {
+        if (networkInterface.addresses.any((item) => item.address == address)) {
+          return LanAddressCandidate(
+            interfaceName: networkInterface.name,
+            address: address,
+          );
+        }
+      }
+    } catch (_) {
+      // Route selection does not depend on adapter display names.
+    }
+    return LanAddressCandidate(interfaceName: 'OS route', address: address);
   }
 
   static void _defaultLog(String message) =>
