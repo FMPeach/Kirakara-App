@@ -32,3 +32,4 @@ flutter:
     - html/
     - assets/branding/app_icon.png
     - assets/branding/wordmark.png
+    - assets/licenses/catalog.json

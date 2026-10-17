@@ -257,7 +257,7 @@ try {
       # the App and makes a healthy run look hung. Wait for the actual Runner
       # top-level window created with the stable title from main.cpp.
       if ($mainWindowHandle -ne 0 -and
-          $mainWindowTitle -ceq 'kirakara_app') {
+          $mainWindowTitle -ceq 'Kirakara') {
         break
       }
       $startupPollCount++
@@ -266,7 +266,7 @@ try {
     $windowStopwatch.Stop()
     $startupWindowWaitMilliseconds = [long]$windowStopwatch.ElapsedMilliseconds
     if ($mainWindowHandle -ne 0 -and
-        $mainWindowTitle -ceq 'kirakara_app') {
+        $mainWindowTitle -ceq 'Kirakara') {
       $responding = $process.Responding
       $loadedModules = @($process.Modules | ForEach-Object {
           [string]$_.ModuleName
@@ -331,7 +331,7 @@ $passed = (
   [string]::IsNullOrWhiteSpace($failure) -and
   $inputIdle -and
   $mainWindowHandle -ne 0 -and
-  $mainWindowTitle -ceq 'kirakara_app' -and
+  $mainWindowTitle -ceq 'Kirakara' -and
   $responding -and
   $flutterModuleLoaded -and
   $showHostModuleLoaded -and

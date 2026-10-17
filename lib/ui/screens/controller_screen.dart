@@ -29,6 +29,7 @@ import '../../services/search_service.dart';
 import '../../services/settings_service.dart';
 import '../browse/browse_mode.dart';
 import '../controller/widgets/chunk_helper_button.dart';
+import '../controller/widgets/version_settings_section.dart';
 import '../theme/kirakara_theme.dart';
 import '../theme/layout_tokens.dart';
 import '../widgets/kira_design_canvas.dart';

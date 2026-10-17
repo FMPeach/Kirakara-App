@@ -320,7 +320,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     FlutterWindow window(project);
     Win32Window::Point origin(10, 10);
     Win32Window::Size size(1600, 900);
-    if (!window.Create(L"kirakara_app", origin, size)) {
+    if (!window.Create(L"Kirakara", origin, size)) {
       ::CoUninitialize();
       return EXIT_FAILURE;
     }

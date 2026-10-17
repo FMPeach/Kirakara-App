@@ -3098,6 +3098,10 @@ function Invoke-KirakaraFlutter {
     Import-Module (Join-Path $script:RepositoryRoot 'third_party/scripts/rime_package.psm1') -Force -DisableNameChecking
     $rimeData = Ensure-RimeDataPackage
     $env:KIRAKARA_RIME_DATA_PACKAGE_ROOT = $rimeData.root
+    $engineLicenses = Join-Path $engine.outputRoot 'licenses'
+    if (Test-Path -LiteralPath $engineLicenses) {
+      & (Join-Path $PSScriptRoot 'update_license_catalog.ps1') -EngineLicenseDirectory $engineLicenses
+    }
     Invalidate-StaleFlutterWindowsBuildForSdk -FlutterSdkRoot $sdk.root -AppRoot $script:RepositoryRoot | Out-Null
     Invalidate-StaleFlutterEphemeralEngine -EngineOutputDirectory $engine.output -AppRoot $script:RepositoryRoot
     $invokeArguments.Add("--local-engine=$($engine.localEngine)")

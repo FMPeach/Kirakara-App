@@ -244,6 +244,10 @@ void RegisterWindowBridge(flutter::BinaryMessenger* messenger, HWND flutter_view
   channel->SetMethodCallHandler(
       [flutter_view](const MethodCall& call,
                      std::unique_ptr<MethodResult> result) {
+        if (call.method_name() == "getAppVersion") {
+          result->Success(EncodableValue(FLUTTER_VERSION));
+          return;
+        }
         if (call.method_name() == "getFlutterViewHandle") {
           result->Success(EncodableValue(static_cast<int64_t>(
               reinterpret_cast<intptr_t>(flutter_view))));
