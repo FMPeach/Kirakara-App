@@ -21,6 +21,41 @@ void main() {
     expect(await const AppInfoService().version(), '2.3.4+56');
   });
 
+  test('name, version and developer come from native package metadata',
+      () async {
+    const channel = MethodChannel('kirakara/window');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+      expect(call.method, 'getAppInfo');
+      return {
+        'name': 'Custom Name',
+        'version': '2.3.4+56',
+        'developer': 'Custom Team'
+      };
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
+    final info = await const AppInfoService().load();
+    expect(info.name, 'Custom Name');
+    expect(info.version, '2.3.4+56');
+    expect(info.developer, 'Custom Team');
+  });
+
+  testWidgets('about follows the packaged name and developer', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+            body: VersionSettingsSection(
+      loadInfo: () async => const AppInfo(
+          name: 'Custom Name', version: '2.3.4+56', developer: 'Custom Team'),
+    ))));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('关于 Custom Name'));
+    await tester.pumpAndSettle();
+    expect(find.text('Custom Name'), findsOneWidget);
+    expect(find.textContaining('Custom Team'), findsOneWidget);
+  });
+
   testWidgets('version section has exactly two menus and loads version once',
       (tester) async {
     var loads = 0;

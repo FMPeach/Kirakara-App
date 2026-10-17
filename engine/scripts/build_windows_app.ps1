@@ -139,6 +139,8 @@ try {
     }
 
     $arguments = @('build', 'windows', "--$buildMode")
+    Import-Module (Join-Path $PSScriptRoot 'app_package.psm1') -Force -DisableNameChecking
+    $arguments = @(Set-KirakaraAppBuildVersion -Arguments $arguments)
     if ($Engine -eq 'local') {
       Invalidate-StaleFlutterEphemeralEngine `
         -EngineOutputDirectory $engineDirectory `

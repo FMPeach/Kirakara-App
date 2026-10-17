@@ -3069,6 +3069,8 @@ function Invoke-KirakaraFlutter {
   $layout=Get-KirakaraProjectLayout; $lock=Get-EngineLock
   $plan=Get-KirakaraFlutterInvocationPlan -Arguments $Arguments
   if ($plan.injectEngine) {
+    Import-Module (Join-Path $PSScriptRoot 'app_package.psm1') -Force -DisableNameChecking
+    $Arguments = @(Set-KirakaraAppBuildVersion -Arguments $Arguments)
     $showHost = Resolve-KirakaraShowHostInput
     $env:KIRAKARA_SHOW_HOST_DLL = $showHost.path
     Import-Module (Join-Path $PSScriptRoot 'chunk_helper_input.psm1') -Force -DisableNameChecking
@@ -3100,7 +3102,8 @@ function Invoke-KirakaraFlutter {
     $env:KIRAKARA_RIME_DATA_PACKAGE_ROOT = $rimeData.root
     $engineLicenses = Join-Path $engine.outputRoot 'licenses'
     if (Test-Path -LiteralPath $engineLicenses) {
-      & (Join-Path $PSScriptRoot 'update_license_catalog.ps1') -EngineLicenseDirectory $engineLicenses
+      & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'update_license_catalog.ps1') -EngineLicenseDirectory $engineLicenses
+      if ($LASTEXITCODE -ne 0) { throw 'Cannot prepare application license resources.' }
     }
     Invalidate-StaleFlutterWindowsBuildForSdk -FlutterSdkRoot $sdk.root -AppRoot $script:RepositoryRoot | Out-Null
     Invalidate-StaleFlutterEphemeralEngine -EngineOutputDirectory $engine.output -AppRoot $script:RepositoryRoot

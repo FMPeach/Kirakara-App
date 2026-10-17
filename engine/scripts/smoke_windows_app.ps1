@@ -136,7 +136,7 @@ if ($Engine -eq 'local') {
     -DisableNameChecking
   $selectedEngine = Assert-KirakaraProjectEngineReady -Mode $Mode
   if ($selectedEngine.kind -cne 'prebuilt') {
-    throw "当前 $Mode Engine 选择不是预编译包。"
+    throw "The selected $Mode Engine is not a prebuilt package."
   }
   $engineDirectory = $selectedEngine.output
 } else {
@@ -169,6 +169,7 @@ $executable = Join-Path $bundle 'kirakara_app.exe'
 if (-not (Test-Path -LiteralPath $executable -PathType Leaf)) {
   throw "Kirakara App bundle is missing. Build it before smoke testing: $executable"
 }
+$expectedWindowTitle = [Diagnostics.FileVersionInfo]::GetVersionInfo($executable).ProductName
 Assert-MatchingFile `
   -ExpectedPath (Join-Path $engineDirectory 'flutter_windows.dll') `
   -ActualPath (Join-Path $bundle 'flutter_windows.dll') `
@@ -257,7 +258,7 @@ try {
       # the App and makes a healthy run look hung. Wait for the actual Runner
       # top-level window created with the stable title from main.cpp.
       if ($mainWindowHandle -ne 0 -and
-          $mainWindowTitle -ceq 'Kirakara') {
+          $mainWindowTitle -ceq $expectedWindowTitle) {
         break
       }
       $startupPollCount++
@@ -266,7 +267,7 @@ try {
     $windowStopwatch.Stop()
     $startupWindowWaitMilliseconds = [long]$windowStopwatch.ElapsedMilliseconds
     if ($mainWindowHandle -ne 0 -and
-        $mainWindowTitle -ceq 'Kirakara') {
+        $mainWindowTitle -ceq $expectedWindowTitle) {
       $responding = $process.Responding
       $loadedModules = @($process.Modules | ForEach-Object {
           [string]$_.ModuleName
@@ -331,7 +332,7 @@ $passed = (
   [string]::IsNullOrWhiteSpace($failure) -and
   $inputIdle -and
   $mainWindowHandle -ne 0 -and
-  $mainWindowTitle -ceq 'Kirakara' -and
+  $mainWindowTitle -ceq $expectedWindowTitle -and
   $responding -and
   $flutterModuleLoaded -and
   $showHostModuleLoaded -and

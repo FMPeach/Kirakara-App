@@ -6,8 +6,9 @@ import '../../theme/kirakara_theme.dart';
 
 class VersionSettingsSection extends StatefulWidget {
   const VersionSettingsSection(
-      {super.key, this.loadVersion, this.loadLicenses});
+      {super.key, this.loadVersion, this.loadInfo, this.loadLicenses});
   final Future<String> Function()? loadVersion;
+  final Future<AppInfo> Function()? loadInfo;
   final Future<List<ThirdPartyLicense>> Function()? loadLicenses;
 
   @override
@@ -15,25 +16,37 @@ class VersionSettingsSection extends StatefulWidget {
 }
 
 class _VersionSettingsSectionState extends State<VersionSettingsSection> {
-  late final Future<String> _version =
-      (widget.loadVersion ?? const AppInfoService().version)()
-          .catchError((Object _) => '未知版本');
+  late final Future<AppInfo> _info = _loadInfo().catchError((Object _) =>
+      const AppInfo(name: 'Kirakara', version: '未知版本', developer: ''));
+
+  Future<AppInfo> _loadInfo() async {
+    if (widget.loadInfo != null) return widget.loadInfo!();
+    if (widget.loadVersion != null) {
+      return AppInfo(
+          name: 'Kirakara',
+          version: await widget.loadVersion!(),
+          developer: 'Project Kirakara');
+    }
+    return const AppInfoService().load();
+  }
 
   @override
-  Widget build(BuildContext context) => FutureBuilder<String>(
-        future: _version,
+  Widget build(BuildContext context) => FutureBuilder<AppInfo>(
+        future: _info,
         builder: (context, snapshot) {
-          final version = snapshot.data ?? '读取中…';
+          final info = snapshot.data;
+          final name = info?.name ?? 'Kirakara';
+          final version = info?.version ?? '读取中…';
           return Column(children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('关于 Kirakara'),
+              title: Text('关于 $name'),
               subtitle: Text(version, key: const ValueKey('app-version')),
               onTap: () => showDialog<void>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  title: const Text('Kirakara'),
-                    content: Text('$version\n\nProject Kirakara\nMIT'),
+                  title: Text(name),
+                  content: Text('$version\n\n${info?.developer ?? ''}\nMIT'),
                   actions: [
                     TextButton(
                         onPressed: () => Navigator.pop(context),
@@ -74,8 +87,9 @@ class _ThirdPartyLicensesPageState extends State<ThirdPartyLicensesPage> {
           future: _entries,
           builder: (context, snapshot) {
             if (snapshot.hasError) return const Center(child: Text('无法读取许可证'));
-            if (!snapshot.hasData)
+            if (!snapshot.hasData) {
               return const Center(child: CircularProgressIndicator());
+            }
             final entries = snapshot.data!;
             return ListView.builder(
               itemCount: entries.length,

@@ -6,7 +6,7 @@ set "EXE=%PROJECT_DIR%\build\windows\x64\runner\Release\kirakara_app.exe"
 cd /d "%PROJECT_DIR%"
 echo Building Kirakara-App Release exe...
 echo.
-call "%PROJECT_DIR%\flutterw.cmd" build windows
+call "%PROJECT_DIR%\flutterw.cmd" build windows --release
 if errorlevel 1 goto failed
 if not exist "%EXE%" goto failed
 

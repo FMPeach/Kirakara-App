@@ -2,6 +2,7 @@
 //
 #pragma code_page(65001)
 #include "resource.h"
+#include "package_info.h"
 
 #define APSTUDIO_READONLY_SYMBOLS
 /////////////////////////////////////////////////////////////////////////////
@@ -60,17 +61,8 @@ IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 // Version
 //
 
-#if defined(FLUTTER_VERSION_MAJOR) && defined(FLUTTER_VERSION_MINOR) && defined(FLUTTER_VERSION_PATCH) && defined(FLUTTER_VERSION_BUILD)
-#define VERSION_AS_NUMBER FLUTTER_VERSION_MAJOR,FLUTTER_VERSION_MINOR,FLUTTER_VERSION_PATCH,FLUTTER_VERSION_BUILD
-#else
-#define VERSION_AS_NUMBER 1,0,0,0
-#endif
-
-#if defined(FLUTTER_VERSION)
-#define VERSION_AS_STRING FLUTTER_VERSION
-#else
-#define VERSION_AS_STRING "1.0.0"
-#endif
+#define VERSION_AS_NUMBER KIRAKARA_APP_VERSION_NUMBER
+#define VERSION_AS_STRING KIRAKARA_APP_VERSION
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION VERSION_AS_NUMBER
@@ -89,13 +81,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "Project Kirakara" "\0"
-            VALUE "FileDescription", "Kirakara" "\0"
+            VALUE "CompanyName", KIRAKARA_APP_DEVELOPER "\0"
+            VALUE "FileDescription", KIRAKARA_APP_NAME "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "kirakara_app" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 键盘Office" "\0"
             VALUE "OriginalFilename", "kirakara_app.exe" "\0"
-            VALUE "ProductName", "Kirakara" "\0"
+            VALUE "ProductName", KIRAKARA_APP_NAME "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.14)
 project(runner LANGUAGES CXX)
 
+execute_process(COMMAND powershell.exe -NoProfile -ExecutionPolicy Bypass
+  -File "${CMAKE_CURRENT_SOURCE_DIR}/../../engine/scripts/generate_package_header.ps1"
+  -OutputPath "${CMAKE_CURRENT_BINARY_DIR}/generated/package_info.h"
+  RESULT_VARIABLE _package_info_result)
+if(NOT _package_info_result EQUAL 0)
+  message(FATAL_ERROR "Invalid config/package.json; cannot generate package metadata.")
+endif()
+
 if(NOT MSVC OR NOT CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "x64")
   message(FATAL_ERROR "Prebuilt Zinnia requires the Windows x64 MSVC toolchain.")
 endif()
@@ -72,6 +80,7 @@ target_link_libraries(${BINARY_NAME} PRIVATE "iphlpapi.lib" "ws2_32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "wtsapi32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE kirakara_zinnia)
 target_include_directories(${BINARY_NAME} PRIVATE
+  "${CMAKE_CURRENT_BINARY_DIR}/generated"
   "${CMAKE_SOURCE_DIR}"
   "${CMAKE_CURRENT_SOURCE_DIR}/../../engine/include"
 )

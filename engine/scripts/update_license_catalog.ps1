@@ -7,13 +7,14 @@ $output = Join-Path $root 'assets/licenses/catalog.json'
 $entries = [Collections.Generic.List[object]]::new()
 function AddNotice([string]$Name, [string]$License, [string[]]$Paths) {
   $texts = @($Paths | ForEach-Object {
-    $text = [IO.File]::ReadAllText($_).Trim()
+    $text = [IO.File]::ReadAllText($_).Replace("`r`n","`n").Trim()
     if ($text.Length -lt 50) { throw "License text is incomplete: $_" }
     $text
   })
   $entries.Add([ordered]@{name=$Name;license=$License;texts=$texts})
 }
-AddNotice 'Kirakara' 'MIT' @((Join-Path $root 'LICENSE'))
+$package = Get-Content -LiteralPath (Join-Path $root 'config/package.json') -Raw -Encoding utf8 | ConvertFrom-Json
+AddNotice $package.name 'MIT' @((Join-Path $root 'LICENSE'))
 foreach ($spec in @(
   @('librime','BSD-3-Clause','librime-BSD-3-Clause.txt'),
   @('Mozc','BSD-3-Clause / Third-party notices','Mozc-BSD-3-Clause.txt'),

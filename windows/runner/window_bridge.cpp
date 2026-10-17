@@ -1,4 +1,5 @@
 #include "window_bridge.h"
+#include "package_info.h"
 
 #include <flutter/encodable_value.h>
 #include <flutter/method_channel.h>
@@ -245,7 +246,14 @@ void RegisterWindowBridge(flutter::BinaryMessenger* messenger, HWND flutter_view
       [flutter_view](const MethodCall& call,
                      std::unique_ptr<MethodResult> result) {
         if (call.method_name() == "getAppVersion") {
-          result->Success(EncodableValue(FLUTTER_VERSION));
+          result->Success(EncodableValue(KIRAKARA_APP_VERSION));
+          return;
+        }
+        if (call.method_name() == "getAppInfo") {
+          result->Success(EncodableValue(EncodableMap{
+              {EncodableValue("name"), EncodableValue(KIRAKARA_APP_NAME)},
+              {EncodableValue("version"), EncodableValue(KIRAKARA_APP_VERSION)},
+              {EncodableValue("developer"), EncodableValue(KIRAKARA_APP_DEVELOPER)}}));
           return;
         }
         if (call.method_name() == "getFlutterViewHandle") {

@@ -18,15 +18,18 @@ Future<List<ThirdPartyLicense>> loadThirdPartyLicenses() async {
   final entries = <String, ThirdPartyLicense>{};
   for (final item in raw.cast<Map<String, dynamic>>()) {
     final name = item['name'] as String;
-    entries[name] = ThirdPartyLicense(name, item['license'] as String,
+    entries[name.toLowerCase()] = ThirdPartyLicense(
+        name,
+        item['license'] as String,
         (item['texts'] as List<dynamic>).cast<String>());
   }
   await for (final entry in LicenseRegistry.licenses) {
     final text = entry.paragraphs.map((p) => p.text).join('\n\n');
     for (final name in entry.packages) {
-      final old = entries[name];
-      entries[name] =
-          ThirdPartyLicense(name, old?.license ?? '', [...?old?.texts, text]);
+      final key = name.toLowerCase();
+      final old = entries[key];
+      entries[key] = ThirdPartyLicense(
+          old?.name ?? name, old?.license ?? '', [...?old?.texts, text]);
     }
   }
   return entries.values.toList()

@@ -13,6 +13,7 @@
 
 #include "flutter_window.h"
 #include "ime_bridge.h"
+#include "package_info.h"
 #include "utils.h"
 
 namespace {
@@ -320,7 +321,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
     FlutterWindow window(project);
     Win32Window::Point origin(10, 10);
     Win32Window::Size size(1600, 900);
-    if (!window.Create(L"Kirakara", origin, size)) {
+    if (!window.Create(KIRAKARA_APP_NAME_W, origin, size)) {
       ::CoUninitialize();
       return EXIT_FAILURE;
     }
