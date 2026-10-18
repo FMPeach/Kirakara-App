@@ -30,7 +30,7 @@ void main() {
       expect(call.method, 'getAppInfo');
       return {
         'name': 'Custom Name',
-        'version': '2.3.4+56',
+        'version': 'v0.1 Beta',
         'developer': 'Custom Team'
       };
     });
@@ -39,7 +39,7 @@ void main() {
         .setMockMethodCallHandler(channel, null));
     final info = await const AppInfoService().load();
     expect(info.name, 'Custom Name');
-    expect(info.version, '2.3.4+56');
+    expect(info.version, 'v0.1 Beta');
     expect(info.developer, 'Custom Team');
   });
 
@@ -49,7 +49,7 @@ void main() {
         home: Scaffold(
             body: VersionSettingsSection(
       loadInfo: () async => const AppInfo(
-          name: 'Custom Name', version: '2.3.4+56', developer: 'Custom Team'),
+          name: 'Custom Name', version: 'v0.1 Beta', developer: 'Custom Team'),
     ))));
     await tester.pumpAndSettle();
     final about = tester
@@ -60,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('关于 Custom Name'), findsOneWidget);
-    expect(find.text('2.3.4+56'), findsOneWidget);
+    expect(find.text('v0.1 Beta'), findsOneWidget);
   });
 
   testWidgets('only licenses navigate and version loads once', (tester) async {

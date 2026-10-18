@@ -8,9 +8,11 @@ Import-Module (Join-Path $root 'engine/scripts/chunk_helper_input.psm1') -Force 
 $package = Get-KirakaraAppPackage -Version $Version
 $helper = Resolve-KirakaraChunKHelperInput
 $saved = [Environment]::GetEnvironmentVariable('KIRAKARA_PACKAGE_VERSION','Process')
+$savedBuild = [Environment]::GetEnvironmentVariable('KIRAKARA_PACKAGE_BUILD_VERSION','Process')
 Push-Location $root
 try {
   $env:KIRAKARA_PACKAGE_VERSION = $package.version
+  $env:KIRAKARA_PACKAGE_BUILD_VERSION = $package.buildVersion
   if (-not $SkipBuild) {
     & (Join-Path $root 'flutterw.ps1') build windows --release
     if ($LASTEXITCODE -ne 0) { throw 'Windows Release build failed.' }
@@ -18,7 +20,10 @@ try {
   $bundle = Join-Path $root 'build/windows/x64/runner/Release'
   $executable = Join-Path $bundle 'kirakara_app.exe'
   $info = [Diagnostics.FileVersionInfo]::GetVersionInfo($executable)
-  if ($info.ProductName -cne $package.name -or $info.CompanyName -cne $package.developer -or $info.ProductVersion -cne $package.version) {
+  $actualNumbers = @($info.FileMajorPart,$info.FileMinorPart,$info.FileBuildPart,$info.FilePrivatePart)
+  if ($info.ProductName -cne $package.name -or $info.CompanyName -cne $package.developer -or
+      $info.ProductVersion -cne $package.version -or $info.FileVersion -cne $package.version -or
+      ($actualNumbers -join ',') -cne ($package.numbers -join ',')) {
     throw 'Built executable metadata does not match config/package.json; rebuild before packaging.'
   }
   $files = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -56,7 +61,8 @@ try {
   $output = [IO.Path]::GetFullPath($OutputDirectory)
   New-Item -ItemType Directory -Path $output -Force | Out-Null
   $name = $package.name -replace '[^\p{L}\p{N}._-]','-'
-  $archivePath = Join-Path $output ($name+'-'+$package.version+'-windows-x64.zip')
+  $archiveVersion = $package.version -replace '[^\p{L}\p{N}._+-]','-'
+  $archivePath = Join-Path $output ($name+'-'+$archiveVersion+'-windows-x64.zip')
   if (Test-Path -LiteralPath $archivePath) { throw "Archive already exists; use another output directory: $archivePath" }
   Add-Type -AssemblyName System.IO.Compression
   Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -74,4 +80,5 @@ try {
 } finally {
   Pop-Location
   [Environment]::SetEnvironmentVariable('KIRAKARA_PACKAGE_VERSION',$saved,'Process')
+  [Environment]::SetEnvironmentVariable('KIRAKARA_PACKAGE_BUILD_VERSION',$savedBuild,'Process')
 }

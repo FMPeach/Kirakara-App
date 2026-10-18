@@ -46,14 +46,17 @@ Flutter。仓库的 VS Code 设置也会固定 Windows 运行目标，并隐藏�
 ## 打包 Windows 版本
 
 应用名称、版本和开发者在 [`config/package.json`](config/package.json) 中修改。
-窗口标题、关于页和 EXE 文件属性会一起更新；版本写成 `0.1.0+1`，加号后面是构建号。
+窗口标题、关于页和 EXE 文件属性会一起更新。`version` 可以直接写成 `v0.1 Beta`，
+程序和 Windows 文件属性都会原样显示。构建时会自动提取开头的数字版本，
+例如 `v0.1 Beta` 对应内部数字版本 `0.1.0.0`，无需另填一份配置。
 
 ```powershell
 .\tool\package_windows.ps1
 ```
 
 脚本通过 `flutterw` 构建 Release，随后生成 ZIP，默认放在 `build/releases`。
-临时指定版本可加 `-Version '0.2.0+2'`，不改配置文件。
+临时指定版本可加 `-Version 'v0.2 Beta'`，不会改配置文件。
+Flutter 的 `--build-name` / `--build-number` 只覆盖内部数字版本，不改显示文字。
 打包前先发布纯K助手，并在本机配置中填好它的产出目录；Show 仍单独构建。
 版本包只收安装清单里的运行文件，不收本机设置、账号状态和日志。
 
