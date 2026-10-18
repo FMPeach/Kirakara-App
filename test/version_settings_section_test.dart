@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kirakara_app/services/app_info_service.dart';
 import 'package:kirakara_app/services/third_party_licenses.dart';
 import 'package:kirakara_app/ui/controller/widgets/version_settings_section.dart';
+import 'package:kirakara_app/ui/theme/kirakara_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -42,7 +43,8 @@ void main() {
     expect(info.developer, 'Custom Team');
   });
 
-  testWidgets('about follows the packaged name and developer', (tester) async {
+  testWidgets('about displays the packaged name and version without a popup',
+      (tester) async {
     await tester.pumpWidget(MaterialApp(
         home: Scaffold(
             body: VersionSettingsSection(
@@ -50,14 +52,18 @@ void main() {
           name: 'Custom Name', version: '2.3.4+56', developer: 'Custom Team'),
     ))));
     await tester.pumpAndSettle();
+    final about = tester
+        .widget<ListTile>(find.widgetWithText(ListTile, '关于 Custom Name'));
+    expect(about.onTap, isNull);
+    expect(about.onLongPress, isNull);
     await tester.tap(find.text('关于 Custom Name'));
     await tester.pumpAndSettle();
-    expect(find.text('Custom Name'), findsOneWidget);
-    expect(find.textContaining('Custom Team'), findsOneWidget);
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('关于 Custom Name'), findsOneWidget);
+    expect(find.text('2.3.4+56'), findsOneWidget);
   });
 
-  testWidgets('version section has exactly two menus and loads version once',
-      (tester) async {
+  testWidgets('only licenses navigate and version loads once', (tester) async {
     var loads = 0;
     await tester.pumpWidget(MaterialApp(
         home: Scaffold(
@@ -73,6 +79,11 @@ void main() {
     ))));
     await tester.pumpAndSettle();
     expect(find.byType(ListTile), findsNWidgets(2));
+    expect(
+        tester
+            .widgetList<ListTile>(find.byType(ListTile))
+            .where((tile) => tile.onTap != null),
+        hasLength(1));
     expect(find.byIcon(Icons.chevron_right), findsNothing);
     expect(find.text('2.3.4+56'), findsOneWidget);
     await tester.tap(find.text('第三方许可证'));
@@ -82,6 +93,40 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Full copyright and permission text.'), findsOneWidget);
     expect(loads, 1);
+  });
+
+  testWidgets('version titles and subtitle match media settings typography',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      theme: buildKirakaraTheme(),
+      home: Scaffold(
+        body: Column(children: [
+          const ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text('缓存目录',
+                style: TextStyle(
+                    color: KiraColors.muted, fontWeight: FontWeight.w700)),
+            subtitle: Text('D:\\Kirakara_Cache',
+                style: TextStyle(color: KiraColors.muted, fontSize: 11)),
+          ),
+          VersionSettingsSection(loadVersion: () async => '2.3.4+56'),
+        ]),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    TextStyle renderedStyle(String text) => tester
+        .widget<RichText>(find.descendant(
+            of: find.text(text), matching: find.byType(RichText)))
+        .text
+        .style!;
+
+    final mediaTitle = renderedStyle('缓存目录');
+    for (final title in ['关于 Kirakara', '第三方许可证']) {
+      expect(renderedStyle(title), mediaTitle);
+    }
+    expect(renderedStyle('2.3.4+56'), renderedStyle('D:\\Kirakara_Cache'));
+    expect(find.byIcon(Icons.chevron_right), findsNothing);
   });
 
   test('offline native notices contain complete license texts', () async {

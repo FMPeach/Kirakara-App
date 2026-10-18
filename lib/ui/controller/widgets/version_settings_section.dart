@@ -40,24 +40,19 @@ class _VersionSettingsSectionState extends State<VersionSettingsSection> {
           return Column(children: [
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text('关于 $name'),
-              subtitle: Text(version, key: const ValueKey('app-version')),
-              onTap: () => showDialog<void>(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: Text(name),
-                  content: Text('$version\n\n${info?.developer ?? ''}\nMIT'),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('关闭'))
-                  ],
-                ),
-              ),
+              title: Text('关于 $name',
+                  style: const TextStyle(
+                      color: KiraColors.muted, fontWeight: FontWeight.w700)),
+              subtitle: Text(version,
+                  key: const ValueKey('app-version'),
+                  style:
+                      const TextStyle(color: KiraColors.muted, fontSize: 11)),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('第三方许可证'),
+              title: const Text('第三方许可证',
+                  style: TextStyle(
+                      color: KiraColors.muted, fontWeight: FontWeight.w700)),
               onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) =>
                     ThirdPartyLicensesPage(load: widget.loadLicenses),

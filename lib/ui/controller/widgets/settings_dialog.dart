@@ -287,6 +287,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                       _buildCacheSection(),
                       const Divider(height: 32, color: KiraColors.line),
                       const _SectionHeader(title: '版本', icon: Icons.info_outline),
+                      const SizedBox(height: 4),
                       const VersionSettingsSection(),
                     ],
                   ),
