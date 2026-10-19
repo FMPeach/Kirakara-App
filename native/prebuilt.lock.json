@@ -2,6 +2,12 @@
   "schemaVersion": 1,
   "packageFormatVersion": 2,
   "target": "windows-x64",
-  "status": "整理阶段：正式 Release 尚未配置；禁止隐式源码构建",
-  "imeRuntime": null
+  "status": "已配置 Windows x64 预编译运行包；禁止隐式源码构建",
+  "imeRuntime": {
+    "identityHash": "57C84E28A651747CAE3F4FE264862124053C4078B3BF2F2FEA55DF60E9F5E698",
+    "url": "https://github.com/FMPeach/Kirakara-App/releases/download/Flutter-engine-mod/kirakara-ime-runtime-windows-x64-84800f92.zip",
+    "size": 17544581,
+    "sha256": "84800F92DC2D02BEEBFF2F0AC7C05B23F91AF30514E88E322B9D22E0B20E4C11",
+    "manifestSha256": "83B57CC9E170A2F60796D0D2BB7D15161562B9FFD0B11F8ED48D6A7BFE0CF659"
+  }
 }

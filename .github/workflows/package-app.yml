@@ -1,0 +1,107 @@
+name: Kirakara 组合打包测试
+
+on:
+  workflow_dispatch:
+    inputs:
+      show_run_id:
+        description: Show 成功构建编号（留空使用配置）
+        required: false
+        type: string
+      helper_run_id:
+        description: 助手成功构建编号（留空使用配置）
+        required: false
+        type: string
+  push:
+    branches: [Actions-Test]
+    paths: [config/package.json, config/actions-build.json]
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: app-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.gate.outputs.build }}
+      show: ${{ steps.dependencies.outputs.show }}
+      helper: ${{ steps.dependencies.outputs.helper }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: 只在版本或构建请求变化时打包
+        id: gate
+        run: node tool/ci/build-gate.mjs
+      - name: 检查预编译包并选定依赖产物
+        if: steps.gate.outputs.build == 'true'
+        id: dependencies
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDENCY_ARTIFACTS_TOKEN || github.token }}
+          SHOW_RUN_ID: ${{ inputs.show_run_id }}
+          HELPER_RUN_ID: ${{ inputs.helper_run_id }}
+        run: node tool/ci/resolve-dependencies.mjs
+      - uses: actions/upload-artifact@v4
+        if: steps.gate.outputs.build == 'true'
+        with:
+          name: app-dependency-selection
+          path: build/actions-test/dependencies.json
+          retention-days: 7
+          if-no-files-found: error
+
+  package:
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: app-dependency-selection
+          path: build/actions-test/
+      - name: 下载已编译的 Show DLL
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ fromJSON(needs.prepare.outputs.show).repository }}
+          run-id: ${{ fromJSON(needs.prepare.outputs.show).runId }}
+          artifact-ids: ${{ fromJSON(needs.prepare.outputs.show).artifactId }}
+          merge-multiple: true
+          github-token: ${{ secrets.DEPENDENCY_ARTIFACTS_TOKEN || github.token }}
+          path: build/actions-test/show/
+      - name: 下载已发布的助手目录
+        uses: actions/download-artifact@v4
+        with:
+          repository: ${{ fromJSON(needs.prepare.outputs.helper).repository }}
+          run-id: ${{ fromJSON(needs.prepare.outputs.helper).runId }}
+          artifact-ids: ${{ fromJSON(needs.prepare.outputs.helper).artifactId }}
+          merge-multiple: true
+          github-token: ${{ secrets.DEPENDENCY_ARTIFACTS_TOKEN || github.token }}
+          path: build/actions-test/helper/
+      - name: 校验产物并设置本次构建输入
+        shell: powershell
+        run: >-
+          .\tool\ci\verify-components.ps1
+          -ShowDirectory build/actions-test/show
+          -HelperDirectory build/actions-test/helper
+          -SelectionPath build/actions-test/dependencies.json
+      - name: 构建并打包 App
+        shell: powershell
+        run: .\tool\package_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kirakara-app-windows-x64-test
+          path: |
+            build/releases/*.zip
+            build/releases/*.sha256
+            build/actions-test/components.json
+          if-no-files-found: error
+          retention-days: 7

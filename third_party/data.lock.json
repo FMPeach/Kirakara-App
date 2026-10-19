@@ -8,7 +8,13 @@
     "sourceSize": 30666390,
     "sourceLicensePath": "zinnia-tomoe-0.6.0-20080911/COPYING",
     "sourceLicenseSha256": "A190DC9C8043755D90F8B0A75FA66B9E42D4AF4C980BF5DDC633F0124DB3CEE7",
-    "binaryPackage": null,
+    "binaryPackage": {
+      "identityHash": "FC94589BB7F7AF4B113AEB188536774ACFCC89B46E20AA06545E595940D2522D",
+      "url": "https://github.com/FMPeach/Kirakara-App/releases/download/Flutter-engine-mod/kirakara-handwriting-data-8ff5f2a3.zip",
+      "size": 102957520,
+      "sha256": "8FF5F2A39C1A15B2811C5172EF22EDD86A91561D7F61891D99DB99C0CC3256F0",
+      "manifestSha256": "91F5E0B79BE9A6DD7EE016A91AE7EDEE27C42273F0A0E2A24888BB8ED4C40736"
+    },
     "reproductionVerified": true,
     "converterRevision": "581faa8f6f15e4a7b21964be3a5ec36265c80e5b",
     "converterArguments": [
@@ -281,7 +287,13 @@
       }
     ],
     "auditComplete": false,
-    "dataPackage": null,
+    "dataPackage": {
+      "identityHash": "622F8040B95022C81DEC7FD9E63DF098898451F02A5A3F88B43BA5E95E682119",
+      "url": "https://github.com/FMPeach/Kirakara-App/releases/download/Flutter-engine-mod/kirakara-rime-data-dea44b6e.zip",
+      "size": 10223440,
+      "sha256": "DEA44B6E9DAA5E3EFF7D9146994A24B69490F5A4F626873EFA08435CCE4D0BE0",
+      "manifestSha256": "5F47500B6DB90212A1CC8C27C1AD5CD9B39396B93DB82B452075710CE1620B06"
+    },
     "sourceInventoryVerified": true,
     "openccLock": "third_party/rime-opencc.lock.json",
     "licenseDocuments": [
