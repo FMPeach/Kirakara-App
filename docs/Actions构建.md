@@ -37,7 +37,7 @@ App 在分配 Windows runner 前一次性确定两个构建编号、提交和附
 
 测试分支已配置这三份现成运行包，和 Flutter Engine 一起存放在已有的 `Flutter-engine-mod` 依赖 Release 中，不代表 App 正式发版。以后如缺少地址或校验值，干净云端构建会在 Linux 准备阶段给出缺项清单，不分配 Windows 构建任务，不临时从源码构建输入法。
 
-App 使用带 VS 2026 的 Windows runner；是否完全适配现有 Zinnia 静态库仍需首次云端实际构建确认。本机成功不等于云端工具链已验收。
+App 使用带 VS 2026 的 Windows runner。现有非 LTCG Zinnia 静态库允许同一 MSVC 19.51 系列中不低于生产版本的补丁版；生产工具链的精确版本和产物哈希仍保留在锁文件中。不接受旧编译器、其他编译器系列、x86 或 ARM64。
 
 ## 测试产物与以后发版
 

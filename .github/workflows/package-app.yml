@@ -36,6 +36,8 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - name: 验证构建触发与依赖选择逻辑
+        run: node --test tool/ci/actions.test.mjs
       - name: 只在版本或构建请求变化时打包
         id: gate
         run: node tool/ci/build-gate.mjs
@@ -95,7 +97,10 @@ jobs:
           -SelectionPath build/actions-test/dependencies.json
       - name: 构建并打包 App
         shell: powershell
-        run: .\tool\package_windows.ps1
+        run: |
+          $ErrorActionPreference = 'Stop'
+          .\tool\ci\test-zinnia-toolchain.ps1
+          .\tool\package_windows.ps1
       - uses: actions/upload-artifact@v4
         with:
           name: kirakara-app-windows-x64-test

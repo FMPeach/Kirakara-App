@@ -9,14 +9,7 @@ if(NOT _package_info_result EQUAL 0)
   message(FATAL_ERROR "Invalid config/package.json; cannot generate package metadata.")
 endif()
 
-if(NOT MSVC OR NOT CMAKE_CXX_COMPILER_ARCHITECTURE_ID STREQUAL "x64")
-  message(FATAL_ERROR "Prebuilt Zinnia requires the Windows x64 MSVC toolchain.")
-endif()
-if(NOT CMAKE_CXX_COMPILER_VERSION VERSION_EQUAL "19.51.36243.0")
-  message(FATAL_ERROR
-    "Prebuilt Zinnia is locked to MSVC v145 19.51.36243.0; actual compiler is "
-    "${CMAKE_CXX_COMPILER_VERSION}.")
-endif()
+include("${CMAKE_CURRENT_SOURCE_DIR}/../cmake/prebuilt_zinnia_toolchain.cmake")
 add_library(kirakara_zinnia STATIC IMPORTED GLOBAL)
 set_target_properties(kirakara_zinnia PROPERTIES
   IMPORTED_CONFIGURATIONS "Debug;Profile;Release"
