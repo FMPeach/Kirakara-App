@@ -41,7 +41,9 @@ App 使用带 VS 2026 的 Windows runner。现有非 LTCG Zinnia 静态库允许
 
 ## 测试产物与以后发版
 
-App 的附件 `kirakara-app-windows-x64-test` 包含 ZIP、SHA-256 以及依赖来源记录。目前只验证构建和组合打包，不创建标签、Release 或预发行版。
+App 只上传一份以实际版本命名的便携 ZIP，例如 `Kirakara-v0.1-Beta-windows-x64.zip`。附件上传关闭二次归档，下载后解压一次即可看到根目录的 `kirakara_app.exe`、DLL、`data/` 和 `tools/`，不再套 ZIP 或 `Kirakara-App/` 目录。校验值与依赖来源可在 Actions 日志和摘要查看，不额外打进下载附件。
+
+本地 `tool/package_windows.ps1` 生成的也是同一种根目录结构。以后正式 Release 直接上传这份 ZIP 原文件，不使用「下载全部 Actions 附件」得到的汇总包。目前测试流程不创建标签、Release 或预发行版。
 
 测试分支中，修改 `config/package.json` 的 `version` 也会触发打包。只修改名称或开发者、版本和请求值都没变时，不启动 Windows 构建。正式上线后再将触发分支改为 main，并接上 Release 发布步骤；本轮不启用。
 

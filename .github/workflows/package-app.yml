@@ -49,13 +49,6 @@ jobs:
           SHOW_RUN_ID: ${{ inputs.show_run_id }}
           HELPER_RUN_ID: ${{ inputs.helper_run_id }}
         run: node tool/ci/resolve-dependencies.mjs
-      - uses: actions/upload-artifact@v4
-        if: steps.gate.outputs.build == 'true'
-        with:
-          name: app-dependency-selection
-          path: build/actions-test/dependencies.json
-          retention-days: 7
-          if-no-files-found: error
 
   package:
     needs: prepare
@@ -66,10 +59,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: app-dependency-selection
-          path: build/actions-test/
+      - name: 记录本次已选组件
+        shell: powershell
+        env:
+          SHOW_SELECTION: ${{ needs.prepare.outputs.show }}
+          HELPER_SELECTION: ${{ needs.prepare.outputs.helper }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $selection = [ordered]@{
+            schemaVersion = 1
+            show = ($env:SHOW_SELECTION | ConvertFrom-Json)
+            helper = ($env:HELPER_SELECTION | ConvertFrom-Json)
+          }
+          New-Item -ItemType Directory -Path build/actions-test -Force | Out-Null
+          [IO.File]::WriteAllText((Join-Path $env:GITHUB_WORKSPACE 'build/actions-test/dependencies.json'),
+            ($selection | ConvertTo-Json -Depth 10), [Text.UTF8Encoding]::new($false))
       - name: 下载已编译的 Show DLL
         uses: actions/download-artifact@v4
         with:
@@ -100,13 +104,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           .\tool\ci\test-zinnia-toolchain.ps1
+          .\tool\ci\test-archive-layout.ps1
           .\tool\package_windows.ps1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
-          name: kirakara-app-windows-x64-test
-          path: |
-            build/releases/*.zip
-            build/releases/*.sha256
-            build/actions-test/components.json
+          path: build/releases/*.zip
+          archive: false
           if-no-files-found: error
           retention-days: 7

@@ -70,9 +70,10 @@ try {
   try {
     foreach ($file in @($files) | Sort-Object) {
       $relative=$file.Substring($prefix.Length).Replace('\','/')
-      [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,$file,('Kirakara-App/'+$relative),[IO.Compression.CompressionLevel]::Optimal) | Out-Null
+      [IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive,$file,$relative,[IO.Compression.CompressionLevel]::Optimal) | Out-Null
     }
   } finally { $archive.Dispose() }
+  & (Join-Path $root 'tool/check_portable_archive.ps1') -ArchivePath $archivePath
   $hash=(Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash
   [IO.File]::WriteAllText(($archivePath+'.sha256'),$hash+' *'+[IO.Path]::GetFileName($archivePath)+"`n",[Text.UTF8Encoding]::new($false))
   Write-Host "Package: $archivePath"
