@@ -685,9 +685,12 @@ void main() {
     final playbackUrl = cache.playbackPathFor(video);
     expect(playbackUrl, isNotNull);
     expect(playbackUrl, startsWith('http://127.0.0.1:'));
+    final cacheHint = Uri.parse(playbackUrl!).queryParameters['kirakara-cache'];
+    expect(cacheHint, isNotNull);
+    expect(File('$cacheHint.part').existsSync(), isTrue);
 
     final rangeResponse = await http.get(
-      Uri.parse(playbackUrl!),
+      Uri.parse(playbackUrl),
       headers: {HttpHeaders.rangeHeader: 'bytes=0-1'},
     );
     expect(rangeResponse.statusCode, HttpStatus.partialContent);
@@ -701,6 +704,7 @@ void main() {
     }
     expect(video.cachedPath, isNotNull);
     expect(File(video.cachedPath!).existsSync(), isTrue);
+    expect(cacheHint, video.cachedPath);
     expect(cache.playbackPathFor(video), startsWith('http://127.0.0.1:'));
   });
 

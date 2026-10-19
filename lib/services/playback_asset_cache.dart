@@ -1057,6 +1057,9 @@ class PlaybackAssetCache extends ChangeNotifier {
       host: InternetAddress.loopbackIPv4.address,
       port: port,
       pathSegments: ['cache', token],
+      // Loopback-only metadata for Show: a completed file is not
+      // network starvation even when a decoder callback is scheduled late.
+      queryParameters: {'kirakara-cache': _localPathFor(asset)},
     ).toString();
   }
 
