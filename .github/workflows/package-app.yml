@@ -12,7 +12,7 @@ on:
         required: false
         type: string
   push:
-    branches: [Actions-Test]
+    branches: [main, Actions-Test]
     paths: [config/package.json, config/actions-build.json]
 
 permissions:

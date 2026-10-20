@@ -2,14 +2,14 @@
   "schemaVersion": 1,
   "show": {
     "repository": "FMPeach/Kirakara-Show",
-    "branch": "Actions-Test",
+    "branch": "main",
     "workflow": "build-show.yml",
     "artifact": "kirakara-show-windows-x64",
     "runId": null
   },
   "helper": {
     "repository": "FMPeach/ChunK-Helper",
-    "branch": "Actions-Test",
+    "branch": "main",
     "workflow": "build-helper.yml",
     "artifact": "chunk-helper-windows-x64",
     "runId": null
