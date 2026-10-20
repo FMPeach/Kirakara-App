@@ -347,6 +347,81 @@ void main() {
     expect(queue.nextPlayableItem?.id, failed.id);
   });
 
+  test('advancing resets key in the same song-change notification', () {
+    final song = _testSearch().featuredSongs.first;
+    final queue = QueueService();
+    final playback = PlaybackService(queueService: queue);
+    addTearDown(playback.disposeService);
+    playback.setCurrentSong(song);
+    playback.setKey(3);
+    playback.setVolume(54);
+    playback.toggleAudioTrack();
+    playback.syncEnginePosition(const Duration(seconds: 30));
+    // A repeated song is a new queue entry too, not a replay of this item.
+    final next = queue.addSong(song);
+    var notifications = 0;
+    playback.addListener(() {
+      notifications++;
+      expect(playback.state.currentItem?.id, next.id);
+      expect(playback.state.key, 0);
+    });
+
+    // Both the skip button and the engine's natural-end handler use next().
+    playback.next();
+
+    expect(notifications, 1);
+    expect(playback.state.position, Duration.zero);
+    expect(playback.state.isPlaying, isTrue);
+    expect(playback.state.volume, 54);
+    expect(playback.state.audioTrackMode, AudioTrackMode.accompaniment);
+    expect(playback.replayRevision, 0);
+  });
+
+  test('skipping the final song clears key along with the current item', () {
+    final playback = PlaybackService(queueService: QueueService());
+    addTearDown(playback.disposeService);
+    playback.setCurrentSong(_testSearch().featuredSongs.first);
+    playback.setKey(-4);
+
+    playback.next();
+
+    expect(playback.state.key, 0);
+    expect(playback.state.currentItem, isNull);
+    expect(playback.state.mode, PlaybackMode.paused);
+  });
+
+  test('direct and queued song selection reset key but pause and replay do not',
+      () {
+    final song = _testSearch().featuredSongs.first;
+    final queue = QueueService();
+    final playback = PlaybackService(queueService: queue);
+    addTearDown(playback.disposeService);
+    playback.setCurrentSong(song);
+    playback.setKey(-2);
+
+    playback.pause();
+    expect(playback.state.key, -2);
+    playback.play();
+    expect(playback.state.key, -2);
+    playback.replay();
+    expect(playback.state.key, -2);
+    playback.setVolume(45);
+    playback.toggleAudioTrack();
+    playback.refreshUpNext();
+    expect(playback.state.key, -2);
+
+    playback.setCurrentSong(song, startPlaying: false);
+    expect(playback.state.key, 0);
+    expect(playback.state.mode, PlaybackMode.paused);
+
+    playback.setKey(5);
+    final next = queue.addSong(song);
+    playback.setCurrentFromQueue(next);
+    expect(playback.state.key, 0);
+    expect(playback.state.currentItem?.id, next.id);
+    expect(queue.items, isEmpty);
+  });
+
   test('replay emits a distinct command even when already at zero', () {
     final playback = PlaybackService(queueService: QueueService());
     addTearDown(playback.disposeService);
@@ -473,12 +548,18 @@ void main() {
     final queue = QueueService();
     final slots = PlaybackSlotManager(queueService: queue);
     addTearDown(slots.dispose);
+    final playback = PlaybackService(queueService: queue);
+    addTearDown(playback.disposeService);
+    playback.setCurrentSong(externalSong('external-first'));
+    playback.setKey(4);
     final second = queue.addSong(externalSong('external-second'));
     final third = queue.addSong(externalSong('external-third'));
     await Future<void>.delayed(Duration.zero);
     expect(slots.preparedSongId, second.song.id);
 
-    final taken = queue.takeNext();
+    playback.next();
+    expect(playback.state.key, 0);
+    final taken = playback.state.currentItem;
     expect(taken?.id, second.id);
     final consumed = slots.consumeStandby(taken!.song.id);
     expect(consumed?.songId, second.song.id);

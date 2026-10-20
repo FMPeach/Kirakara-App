@@ -64,6 +64,7 @@ class PlaybackService extends ChangeNotifier {
       _setState(
         _state.copyWith(
           mode: PlaybackMode.paused,
+          key: 0,
           position: Duration.zero,
           clearCurrentItem: true,
           clearUpNext: true,
@@ -76,6 +77,7 @@ class PlaybackService extends ChangeNotifier {
     _setState(
       _state.copyWith(
         mode: PlaybackMode.playing,
+        key: 0,
         position: Duration.zero,
         currentItem: nextItem,
         upNext: upNext,
@@ -89,6 +91,7 @@ class PlaybackService extends ChangeNotifier {
     _setState(
       _state.copyWith(
         currentItem: item,
+        key: 0,
         mode: startPlaying ? PlaybackMode.playing : PlaybackMode.paused,
         position: Duration.zero,
         upNext: upNext,
