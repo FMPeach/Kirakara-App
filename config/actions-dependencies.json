@@ -11,7 +11,7 @@
     "repository": "FMPeach/ChunK-Helper",
     "branch": "main",
     "workflow": "build-helper.yml",
-    "artifact": "chunk-helper-windows-x64",
+    "artifact": "*-windows-x64",
     "runId": null
   }
 }

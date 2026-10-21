@@ -42,6 +42,37 @@ test('selects a successful dependency and freezes artifact ID/commit', async () 
   const result = await resolveComponent(spec, get);
   assert.equal(result.runId, '42'); assert.equal(result.artifactId, '101'); assert.equal(result.commit, commit);
 });
+
+for (const name of ['纯K助手-v0.2.0-windows-x64', 'ChunK-Helper-v0.3.0-windows-x64', 'chunk-helper-windows-x64']) {
+  test(`selects versioned or legacy artifact ${name} and records its actual name`, async () => {
+    const { get } = fixture({}, { name });
+    const result = await resolveComponent({ ...spec, artifact: '*-windows-x64' }, get);
+    assert.equal(result.artifactId, '101');
+    assert.equal(result.artifactName, name);
+  });
+}
+
+test('artifact name punctuation remains literal rather than a regular expression', async () => {
+  const name = 'Helper.v0.2+[release]-windows-x64';
+  const result = await resolveComponent({ ...spec, artifact: name }, fixture({}, { name }).get);
+  assert.equal(result.artifactName, name);
+  await assert.rejects(resolveComponent({ ...spec, artifact: 'Helper.v0.2-windows-x64' },
+    fixture({}, { name: 'HelperXv0X2-windows-x64' }).get), /missing\/expired/);
+});
+
+test('versioned artifact matching still rejects the wrong platform', async () => {
+  await assert.rejects(resolveComponent({ ...spec, artifact: '*-windows-x64' },
+    fixture({}, { name: '纯K助手-v0.2.0-linux-x64' }).get), /missing\/expired/);
+});
+
+test('multiple matching artifacts fail instead of choosing one arbitrarily', async () => {
+  const { get } = fixture();
+  const ambiguous = async path => path.includes('/artifacts?') ? { artifacts: [
+    { id: 101, name: '纯K助手-v0.2.0-windows-x64', expired: false, expires_at: '2099-01-01T00:00:00Z' },
+    { id: 102, name: '纯K助手-v0.3.0-windows-x64', expired: false, expires_at: '2099-01-01T00:00:00Z' },
+  ] } : get(path);
+  await assert.rejects(resolveComponent({ ...spec, artifact: '*-windows-x64' }, ambiguous), /missing\/expired/);
+});
 test('explicit run ID does not search latest builds', async () => {
   const { get, requests } = fixture();
   await resolveComponent(spec, get, '42');

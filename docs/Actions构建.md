@@ -10,7 +10,7 @@ Show 仓库独立构建 DLL ─────┐
 
 ## 先准备两份依赖
 
-分别在 Show 和纯K助手的 main 修改 `config/actions-build.json` 中的 `request` 并推送，或在 Actions 中点击 **Run workflow**。普通代码提交不会自动构建；请求值不用改回，每次使用一个新值即可。
+分别在 Show 和纯K助手的 main 修改 `config/actions-build.json` 中的 `request` 并推送，或在 Actions 中点击 **Run workflow**。纯K助手修改 `config/package.json` 后推送也会自动构建。普通代码提交不会自动构建；请求值不用改回，每次使用一个新值即可。
 
 等两边成功，再修改 App 的同名请求文件并推送。App 自己不会拉取 Show/助手源码，不会代替它们编译。
 
@@ -21,7 +21,7 @@ App 默认消费两个仓库 main 分支的最新成功构建，不追随尚未�
 修改 `config/actions-dependencies.json`：
 
 - `repository`、`branch`：产物所属仓库和分支。
-- `workflow`、`artifact`：对应工作流文件名及附件名称。
+- `workflow`、`artifact`：对应工作流文件名及附件名称。附件名支持 `*` 匹配任意字符，但必须且只能匹配到一份附件；助手默认使用 `*-windows-x64`，兼容带版本的下载文件名。
 - `runId`：填成功的 Actions 构建编号可以固定版本；`null` 使用指定分支最近一次成功构建。
 
 App 在分配 Windows runner 前一次性确定两个构建编号、提交和附件 ID。随后只消费选定的附件，不在构建途中重新寻找「最新版」。缺失、失败、过期、分支不符、PR 构建、文件哈希不符都会明确停止，不换用旧附件或本地路径。每份附件保留 7 天。

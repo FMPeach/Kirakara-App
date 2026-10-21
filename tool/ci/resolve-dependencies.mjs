@@ -35,14 +35,16 @@ export async function resolveComponent(spec, get, override) {
     throw new Error(`Dependency run ${run.id} is not a successful trusted branch build of ${spec.repository}.`);
   }
   const { artifacts } = await get(`${base}/runs/${run.id}/artifacts?per_page=100`);
-  const matches = artifacts.filter(value => value.name === spec.artifact);
+  const artifactPattern = new RegExp(`^${spec.artifact.split('*')
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 'u');
+  const matches = artifacts.filter(value => artifactPattern.test(value.name));
   if (matches.length !== 1 || matches[0].expired ||
       !Number.isFinite(Date.parse(matches[0].expires_at)) || Date.parse(matches[0].expires_at) <= Date.now()) {
     throw new Error(`Artifact ${spec.artifact} is missing/expired in run ${run.id}; rebuild the dependency. No older build will be substituted.`);
   }
   return { repository: spec.repository, branch: spec.branch, workflow: spec.workflow,
     runId: String(run.id), commit: run.head_sha, runAttempt: String(run.run_attempt),
-    artifactId: String(matches[0].id), artifactName: spec.artifact, url: run.html_url };
+    artifactId: String(matches[0].id), artifactName: matches[0].name, url: run.html_url };
 }
 
 async function main() {
