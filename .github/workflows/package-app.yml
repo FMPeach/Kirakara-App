@@ -1,5 +1,4 @@
-name: Kirakara 组合打包测试
-
+name: 打包 Kirakara App
 on:
   workflow_dispatch:
     inputs:
