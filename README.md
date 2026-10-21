@@ -1,5 +1,3 @@
-# 目前APP尚未上线，上线之前将无法使用任何功能，请期待后续上线。
-
 # Kirakara-App
 
 Kirakara 是基于 Flutter 的 KTV 点歌与播放控制应用，Windows 预览通过定制 Flutter
