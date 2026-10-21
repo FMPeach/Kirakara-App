@@ -2,181 +2,742 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Kirakara 手机点歌</title>
 <style>
+/* ==========================================================================
+   MD3 High-Energy Neon Night Palette (高对比度暗色 MD3 设计体系)
+   ========================================================================== */
 :root {
-  --bg: #111216;
-  --surface: #1a1c22;
-  --surface2: #22242b;
-  --cream: #f4eee2;
-  --muted: #777777;
-  --red: #dd3e38;
-  --teal: #22c59b;
-  --amber: #f0a258;
-  --line: #2a2c33;
-  --radius: 12px;
+  /* 基底与容器层级 (Surface Hierarchy) */
+  --md-sys-surface: #0e1117;
+  --md-sys-surface-container-low: #151922;
+  --md-sys-surface-container: #1c212d;
+  --md-sys-surface-container-high: #242b3a;
+  --md-sys-surface-container-highest: #2e3648;
+
+  /* 轮廓与微弱边界 (Crisp Outlines) */
+  --md-sys-outline: rgba(255, 255, 255, 0.08);
+  --md-sys-outline-variant: rgba(255, 255, 255, 0.14);
+
+  /* 主题色系统 (High-Chroma Accents - 拒绝寡淡) */
+  --md-sys-primary: #00f0aa;
+  --md-sys-on-primary: #003824;
+  --md-sys-primary-container: rgba(0, 240, 170, 0.14);
+  --md-sys-on-primary-container: #5fffc5;
+
+  --md-sys-secondary: #ffb74d;
+  --md-sys-secondary-container: rgba(255, 183, 77, 0.14);
+
+  --md-sys-error: #ff5252;
+  --md-sys-error-container: rgba(255, 82, 82, 0.16);
+
+  /* 文本系统 */
+  --md-sys-on-surface: #edf1f7;
+  --md-sys-on-surface-variant: #9aa4b5;
+  --md-sys-inverse-surface: #f0f3f9;
+
+  /* MD3 形状系统 (Shape) */
+  --shape-xs: 4px;
+  --shape-sm: 8px;
+  --shape-md: 14px;
+  --shape-lg: 20px;
+  --shape-xl: 28px;
+  --shape-full: 9999px;
+
+  /* 动效 */
+  --easing-standard: cubic-bezier(0.2, 0, 0, 1);
 }
+
 * { margin:0; padding:0; box-sizing:border-box; }
 html, body { height:100%; overflow:hidden; }
+
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  background: var(--bg); color: var(--cream);
-  -webkit-tap-highlight-color: transparent; user-select: none;
-  display:flex; flex-direction:column; height:100dvh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC', sans-serif;
+  background: var(--md-sys-surface);
+  color: var(--md-sys-on-surface);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
 }
-.header { background:var(--surface); padding:9px 16px 7px; border-bottom:1px solid var(--line); flex-shrink:0; display:flex; align-items:center; justify-content:space-between; }
-.header h1 { font-size:13px; font-weight:700; }
-.header .ip-tag { font-size:10px; color:var(--muted); background:var(--surface2); padding:2px 8px; border-radius:99px; font-weight:700; }
-.tabs { display:flex; flex-shrink:0; border-bottom:1px solid var(--line); background:var(--bg); }
-.tab { flex:1; text-align:center; padding:10px 0; font-size:13px; font-weight:700; color:var(--muted); border-bottom:2px solid transparent; cursor:pointer; }
-.tab.active { color:var(--cream); border-bottom-color:var(--teal); }
-.search-bar { padding:8px 14px; display:flex; gap:8px; flex-shrink:0; background:var(--bg); }
-.search-input { flex:1; height:38px; border-radius:var(--radius); border:1px solid var(--line); background:var(--surface); color:var(--cream); padding:0 12px; font-size:14px; font-weight:600; outline:none; }
-.search-input::placeholder { color:var(--muted); }
-.search-input:focus { border-color:var(--teal); }
-.btn { height:38px; padding:0 14px; border-radius:var(--radius); border:none; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
-.btn:active { opacity:.7; }
-.btn-teal { background:var(--teal); color:#111216; }
-.btn-red { background:var(--red); color:#fff; }
-.content { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px; }
-.content::-webkit-scrollbar { width:0; }
-.song-card { display:flex; align-items:center; gap:12px; padding:11px 14px; border-bottom:1px solid color-mix(in srgb, var(--line) 50%, transparent); cursor:pointer; }
-.song-card:active { background:var(--surface); }
-.song-card .idx { width:30px; height:30px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:var(--amber); flex-shrink:0; }
-.song-card .info { flex:1; min-width:0; }
-.song-card .stitle { font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.song-card .sartist { font-size:11px; color:var(--muted); font-weight:600; margin-top:2px; }
-.song-card .smeta { font-size:10px; color:var(--muted); margin-top:1px; }
+
+/* 顶部 App Bar */
+.header {
+  background: var(--md-sys-surface);
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--md-sys-outline);
+}
+.header h1 {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--md-sys-on-surface);
+}
+.header .ip-tag {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--md-sys-on-surface-variant);
+  background: var(--md-sys-surface-container);
+  padding: 4px 10px;
+  border-radius: var(--shape-full);
+  border: 1px solid var(--md-sys-outline);
+}
+
+/* MD3 胶囊 Tab 控制栏 */
+.tabs-wrapper {
+  padding: 8px 14px 6px;
+  background: var(--md-sys-surface);
+  flex-shrink: 0;
+}
+.tabs {
+  display: flex;
+  background: var(--md-sys-surface-container-low);
+  padding: 4px;
+  border-radius: var(--shape-full);
+  border: 1px solid var(--md-sys-outline);
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--md-sys-on-surface-variant);
+  border-radius: var(--shape-full);
+  cursor: pointer;
+  transition: all 0.2s var(--easing-standard);
+}
+.tab.active {
+  color: var(--md-sys-on-primary-container);
+  background: var(--md-sys-primary-container);
+  font-weight: 800;
+}
+
+/* 搜索与外链输入区 */
+.search-bar {
+  padding: 4px 14px 10px;
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--md-sys-surface);
+}
+.search-input {
+  flex: 1;
+  height: 42px;
+  border-radius: var(--shape-full);
+  border: 1px solid var(--md-sys-outline);
+  background: var(--md-sys-surface-container);
+  color: var(--md-sys-on-surface);
+  padding: 0 16px;
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.search-input::placeholder { color: var(--md-sys-on-surface-variant); opacity: 0.7; }
+.search-input:focus {
+  border-color: var(--md-sys-primary);
+  background: var(--md-sys-surface-container-high);
+}
+
+/* MD3 按钮通用设计 */
+.btn {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: var(--shape-full);
+  border: none;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, opacity 0.15s;
+}
+.btn:active { transform: scale(0.96); opacity: 0.85; }
+.btn-teal {
+  background: var(--md-sys-primary);
+  color: var(--md-sys-on-primary);
+}
+.btn-red {
+  background: var(--md-sys-error);
+  color: #fff;
+}
+
+/* 内容主区域 */
+.content {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 14px calc(env(safe-area-inset-bottom, 0px) + 84px);
+}
+.content::-webkit-scrollbar { width: 0; }
+
+.section-header {
+  padding: 10px 4px 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--md-sys-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* 歌曲卡片 (MD3 Tonal Card) */
+.song-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--md-sys-surface-container-low);
+  border-radius: var(--shape-md);
+  margin-bottom: 8px;
+  border: 1px solid var(--md-sys-outline);
+  transition: background 0.15s, transform 0.1s;
+  cursor: pointer;
+}
+.song-card:active {
+  background: var(--md-sys-surface-container);
+  transform: scale(0.99);
+}
+.song-card .idx {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--shape-sm);
+  background: var(--md-sys-surface-container-high);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--md-sys-secondary);
+  flex-shrink: 0;
+}
+.song-card .info { flex: 1; min-width: 0; }
+.song-card .stitle {
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--md-sys-on-surface);
+}
+.song-card .sartist {
+  font-size: 12px;
+  color: var(--md-sys-on-surface-variant);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.song-card .smeta {
+  font-size: 10px;
+  color: var(--md-sys-on-surface-variant);
+  opacity: 0.8;
+  margin-top: 1px;
+}
+
+/* 点歌与顶歌按钮 */
 .song-card .add-btn {
-  width:52px; height:34px; border-radius:10px; border:1.5px solid var(--teal);
-  background:transparent; color:var(--teal); font-size:15px; font-weight:700;
-  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: var(--shape-full);
+  border: none;
+  background: var(--md-sys-primary-container);
+  color: var(--md-sys-primary);
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s;
 }
-.song-card .add-btn:active { background:var(--teal); color:#111216; }
+.song-card .add-btn:active {
+  transform: scale(0.92);
+  background: var(--md-sys-primary);
+  color: var(--md-sys-on-primary);
+}
 .bump-btn {
-  width:28px; height:28px; border-radius:8px; border:1px solid var(--line);
-  background:transparent; color:var(--muted); font-size:13px;
-  display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
-  margin-right:4px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--shape-full);
+  border: 1px solid var(--md-sys-outline-variant);
+  background: var(--md-sys-surface-container);
+  color: var(--md-sys-on-surface-variant);
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 2px;
+  transition: transform 0.1s;
 }
-.bump-btn:active { background:var(--surface2); }
-.queue-card { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid color-mix(in srgb, var(--line) 50%, transparent); }
-.queue-card .qidx { font-size:11px; font-weight:800; color:var(--muted); width:22px; text-align:center; flex-shrink:0; }
-.queue-card .qinfo { flex:1; min-width:0; }
-.queue-card .qtitle { font-size:13px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.queue-card .qartist { font-size:11px; color:var(--muted); font-weight:600; margin-top:1px; }
-.qbtn { width:28px; height:28px; border-radius:8px; border:1px solid var(--line); background:transparent; color:var(--muted); font-size:13px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.qbtn.danger:active { background:var(--red); color:#fff; border-color:var(--red); }
-.ext-status { font-size:10px; color:var(--muted); margin-top:3px; display:none; }
-.bot-bar { display:flex; align-items:center; gap:10px; padding:8px 14px 10px; background:var(--surface); border-top:1px solid var(--line); flex-shrink:0; }
-.bot-bar.idle .bot-title { color:var(--muted); }
-.bot-cover { width:36px; height:36px; border-radius:8px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; cursor:pointer; }
-.bot-cover:active { opacity:.7; }
-.bot-info { flex:1; min-width:0; cursor:pointer; }
-.bot-info:active { opacity:.8; }
-.bot-title { font-size:13px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.bot-artist { font-size:10px; color:var(--muted); font-weight:600; margin-top:1px; }
-.bot-queue { display:flex; align-items:center; gap:3px; cursor:pointer; flex-shrink:0; padding:6px 10px; border-radius:10px; background:var(--surface2); }
-.bot-queue:active { opacity:.7; }
-.bot-queue-icon { font-size:15px; }
-.bot-queue-count { font-size:13px; font-weight:800; color:var(--teal); min-width:18px; text-align:center; }
-.qp-backdrop { position:fixed; inset:0; z-index:99; background:rgba(0,0,0,.55); opacity:0; pointer-events:none; transition:opacity .25s; }
-.qp-backdrop.open { opacity:1; pointer-events:auto; }
-.queue-panel { position:fixed; top:0; left:0; right:0; bottom:0; z-index:100; background:var(--bg); display:flex; flex-direction:column; padding-top:max(40px, env(safe-area-inset-top, 20px)); transform:translateY(100%); transition:transform .25s cubic-bezier(.4,0,.2,1); }
-.queue-panel.open { transform:translateY(0); }
-.qp-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px 10px; flex-shrink:0; }
-.qp-title { font-size:13px; font-weight:700; color:var(--cream); }
-.po-close { width:32px; height:32px; border-radius:50%; background:var(--surface2); border:none; color:var(--muted); font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-.qp-now { padding:6px 16px 12px; flex-shrink:0; border-bottom:1px solid var(--line); }
-.qp-now-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-.qp-cover { width:44px; height:44px; border-radius:10px; background:var(--surface2); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
-.qp-now-info { flex:1; min-width:0; }
-.qp-now-title { font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.qp-now-artist { font-size:12px; color:var(--muted); font-weight:600; margin-top:2px; }
-.qp-ctrls { display:flex; align-items:center; justify-content:center; gap:14px; }
-.qp-volume { display:flex; align-items:center; gap:8px; }
-.qp-divider { padding:10px 16px 4px; flex-shrink:0; font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
-.qp-body { flex:1; overflow-y:auto; min-height:0; }
-.qp-body::-webkit-scrollbar { width:0; }
-.mini-ctrl { width:34px; height:34px; border-radius:50%; background:var(--surface2); border:none; color:var(--cream); font-size:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; }
-.mini-ctrl.play-btn { background:var(--teal); color:#111216; width:38px; height:38px; font-size:15px; }
-.vol-btn { width:32px; height:32px; border-radius:50%; background:var(--surface2); border:none; color:var(--cream); font-size:18px; font-weight:700; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.vol-btn:active { background:var(--teal); color:#111216; }
-.vol-label { font-size:13px; font-weight:700; color:var(--cream); min-width:36px; text-align:center; }
-.section-header { padding:14px 14px 4px; font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
-.empty { text-align:center; padding:48px 20px; color:var(--muted); font-size:13px; font-weight:600; }
-.empty .icon { font-size:40px; margin-bottom:10px; opacity:.4; }
-.toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); background:var(--teal); color:#111216; padding:7px 18px; border-radius:99px; font-size:12px; font-weight:700; opacity:0; pointer-events:none; transition:opacity .3s; z-index:200; }
-.toast.show { opacity:1; }
-.toast.warn { background:var(--amber); }
+.bump-btn:active {
+  transform: scale(0.92);
+  color: var(--md-sys-primary);
+  border-color: var(--md-sys-primary);
+}
+
+/* 底部悬浮播控条 (MD3 Floating Dock) */
+.bot-bar-wrapper {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  pointer-events: none;
+  z-index: 50;
+}
+.bot-bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+  background: var(--md-sys-surface-container-high);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--md-sys-outline-variant);
+  border-radius: var(--shape-xl);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+  transition: opacity 0.2s;
+}
+.bot-bar.idle .bot-title { color: var(--md-sys-on-surface-variant); }
+.bot-cover {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--shape-lg);
+  background: var(--md-sys-surface-container-highest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+  border: 1px solid var(--md-sys-outline);
+}
+.bot-info { flex: 1; min-width: 0; cursor: pointer; }
+.bot-title {
+  font-size: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--md-sys-on-surface);
+}
+.bot-artist {
+  font-size: 11px;
+  color: var(--md-sys-on-surface-variant);
+  font-weight: 600;
+  margin-top: 2px;
+}
+.bot-queue {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-radius: var(--shape-full);
+  background: var(--md-sys-primary-container);
+  border: 1px solid rgba(0, 240, 170, 0.2);
+}
+.bot-queue-count {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--md-sys-primary);
+}
+
+/* MD3 Modal Bottom Sheet (队列与控制抽屉) */
+.qp-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s var(--easing-standard);
+}
+.qp-backdrop.open { opacity: 1; pointer-events: auto; }
+
+.queue-panel {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 86dvh;
+  z-index: 100;
+  background: var(--md-sys-surface-container-low);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--shape-xl) var(--shape-xl) 0 0;
+  box-shadow: 0 -4px 30px rgba(0,0,0,0.6);
+  border-top: 1px solid var(--md-sys-outline-variant);
+  transform: translateY(100%);
+  transition: transform 0.28s var(--easing-standard);
+}
+.queue-panel.open { transform: translateY(0); }
+
+/* MD3 抽屉顶部把手 (Drag Handle) */
+.drag-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: var(--shape-full);
+  background: var(--md-sys-on-surface-variant);
+  opacity: 0.35;
+  margin: 10px auto 2px;
+  flex-shrink: 0;
+}
+
+.qp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 18px 12px;
+  flex-shrink: 0;
+}
+.qp-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--md-sys-on-surface);
+}
+.po-close {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--shape-full);
+  background: var(--md-sys-surface-container-high);
+  border: 1px solid var(--md-sys-outline);
+  color: var(--md-sys-on-surface-variant);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s;
+}
+.po-close:active { transform: scale(0.9); }
+
+/* 当前播放 Hero Card */
+.qp-now {
+  margin: 0 14px;
+  padding: 14px;
+  background: var(--md-sys-surface-container);
+  border-radius: var(--shape-lg);
+  border: 1px solid var(--md-sys-outline-variant);
+  flex-shrink: 0;
+}
+.qp-now-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.qp-cover {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--shape-md);
+  background: var(--md-sys-surface-container-highest);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--md-sys-primary);
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.qp-cover img { width: 100%; height: 100%; object-fit: cover; }
+.qp-now-info { flex: 1; min-width: 0; }
+.qp-now-title {
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--md-sys-on-surface);
+}
+.qp-now-artist {
+  font-size: 12px;
+  color: var(--md-sys-on-surface-variant);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+/* 控制按钮簇 */
+.qp-ctrls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* 分段式药丸控制组 (Pitch / Vol) */
+.qp-volume {
+  display: flex;
+  align-items: center;
+  background: var(--md-sys-surface-container-highest);
+  padding: 3px;
+  border-radius: var(--shape-full);
+  border: 1px solid var(--md-sys-outline);
+}
+.vol-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--shape-full);
+  background: transparent;
+  border: none;
+  color: var(--md-sys-on-surface);
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+.vol-btn:active {
+  background: var(--md-sys-surface);
+  transform: scale(0.9);
+}
+.vol-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--md-sys-primary);
+  min-width: 26px;
+  text-align: center;
+}
+
+/* 核心播控按键 */
+.mini-ctrl {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--shape-full);
+  background: var(--md-sys-surface-container-highest);
+  border: 1px solid var(--md-sys-outline);
+  color: var(--md-sys-on-surface);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.1s;
+}
+.mini-ctrl:active { transform: scale(0.92); }
+.mini-ctrl.play-btn {
+  background: var(--md-sys-primary);
+  color: var(--md-sys-on-primary);
+  width: 44px;
+  height: 44px;
+  border: none;
+}
+
+.qp-divider {
+  padding: 12px 18px 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--md-sys-on-surface-variant);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* 队列列表 */
+.qp-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 4px 14px calc(env(safe-area-inset-bottom, 0px) + 16px);
+}
+.qp-body::-webkit-scrollbar { width: 0; }
+
+.queue-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  background: var(--md-sys-surface-container);
+  border-radius: var(--shape-md);
+  margin-bottom: 6px;
+  border: 1px solid var(--md-sys-outline);
+}
+.queue-card .qidx {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--md-sys-secondary);
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.queue-card .qinfo { flex: 1; min-width: 0; }
+.queue-card .qtitle {
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--md-sys-on-surface);
+}
+.queue-card .qartist {
+  font-size: 11px;
+  color: var(--md-sys-on-surface-variant);
+  font-weight: 600;
+  margin-top: 1px;
+}
+.qbtn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--shape-full);
+  border: 1px solid var(--md-sys-outline);
+  background: var(--md-sys-surface-container-highest);
+  color: var(--md-sys-on-surface-variant);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.qbtn:active { transform: scale(0.9); }
+.qbtn.danger:active {
+  background: var(--md-sys-error);
+  color: #fff;
+  border-color: var(--md-sys-error);
+}
+
+.ext-status { font-size: 12px; font-weight: 700; margin-top: 6px; display: none; }
+.empty {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--md-sys-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+.empty .icon { font-size: 36px; margin-bottom: 12px; opacity: 0.5; }
+
+/* Toast 浮动通知 (MD3 Snack style) */
+.toast {
+  position: fixed;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 74px);
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: var(--md-sys-inverse-surface);
+  color: #11141a;
+  padding: 8px 18px;
+  border-radius: var(--shape-full);
+  font-size: 12px;
+  font-weight: 800;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+}
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.warn { background: var(--md-sys-secondary); color: #201300; }
 </style>
 </head>
 <body>
+
 <div class="header">
   <h1>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" style="vertical-align:-3px;margin-right:4px"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/></svg>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--md-sys-primary)" stroke-width="2.2" stroke-linecap="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
     Kirakara 点歌台
   </h1>
   <span class="ip-tag" id="serverIp">连接中…</span>
 </div>
-<div class="tabs">
-  <div class="tab active" data-tab="featured">推荐</div>
-  <div class="tab" data-tab="search">搜索</div>
-  <div class="tab" data-tab="ext">外链</div>
+
+<div class="tabs-wrapper">
+  <div class="tabs">
+    <div class="tab active" data-tab="featured">推荐</div>
+    <div class="tab" data-tab="search">搜索</div>
+    <div class="tab" data-tab="ext">外链</div>
+  </div>
 </div>
+
 <div class="search-bar" id="searchBar" style="display:none">
-  <input class="search-input" id="searchInput" placeholder="歌名 / 歌手 / 编号…" autocomplete="off">
+  <input class="search-input" id="searchInput" placeholder="搜索歌名、歌手或编号…" autocomplete="off">
   <button class="btn btn-teal" onclick="doSearch()">搜索</button>
 </div>
-<div id="extTab" style="display:none;flex-shrink:0;background:var(--bg);padding:10px 14px 6px">
-  <div style="display:flex;gap:6px">
-    <input class="search-input" id="extLinkInput" placeholder="BV... 或 B站视频链接" autocomplete="off">
+
+<div id="extTab" style="display:none;flex-shrink:0;background:var(--md-sys-surface);padding:0 14px 10px">
+  <div style="display:flex;gap:8px">
+    <input class="search-input" id="extLinkInput" placeholder="输入 BV 号或 B 站视频链接…" autocomplete="off">
     <button class="btn btn-red" onclick="doResolve()">解析</button>
   </div>
   <div class="ext-status" id="extStatus"></div>
 </div>
+
 <div class="content" id="content"></div>
-<div class="bot-bar" id="botBar">
-  <div class="bot-cover" onclick="openQueue()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
-  <div class="bot-info" onclick="openQueue()">
-    <div class="bot-title" id="botTitle">等待点歌</div>
-    <div class="bot-artist" id="botArtist">加入歌曲开始播放</div>
-  </div>
-  <div class="bot-queue" onclick="openQueue()">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="var(--teal)" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="var(--teal)" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="var(--teal)" stroke="none"/></svg>
-    <span class="bot-queue-count" id="botQueueCount">0</span>
+
+<!-- 底部播放状态 Dock (Floating Bar) -->
+<div class="bot-bar-wrapper">
+  <div class="bot-bar idle" id="botBar">
+    <div class="bot-cover" onclick="openQueue()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+    </div>
+    <div class="bot-info" onclick="openQueue()">
+      <div class="bot-title" id="botTitle">等待点歌</div>
+      <div class="bot-artist" id="botArtist">加入歌曲开始播放</div>
+    </div>
+    <div class="bot-queue" onclick="openQueue()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--md-sys-primary)" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><circle cx="4" cy="6" r="1.5" fill="var(--md-sys-primary)" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="var(--md-sys-primary)" stroke="none"/><circle cx="4" cy="18" r="1.5" fill="var(--md-sys-primary)" stroke="none"/></svg>
+      <span class="bot-queue-count" id="botQueueCount">0</span>
+    </div>
   </div>
 </div>
+
+<!-- MD3 队列 Bottom Sheet -->
 <div class="qp-backdrop" id="qpBackdrop" onclick="closeQueue()"></div>
 <div class="queue-panel" id="queuePanel">
+  <div class="drag-handle"></div>
   <div class="qp-header">
-    <span class="qp-title">已点列表 · <span id="qpCount">0</span> 首</span>
+    <span class="qp-title">已点列表 · <span id="qpCount" style="color:var(--md-sys-primary)">0</span> 首</span>
     <button class="po-close" onclick="closeQueue()">✕</button>
   </div>
+
   <div class="qp-now">
     <div class="qp-now-row">
-      <div class="qp-cover"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <div class="qp-cover" id="qpCover">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+      </div>
       <div class="qp-now-info">
         <div class="qp-now-title" id="qpTitle">等待点歌</div>
         <div class="qp-now-artist" id="qpArtist"></div>
       </div>
     </div>
     <div class="qp-ctrls">
+      <!-- 升降调分段控制 -->
       <div class="qp-volume">
         <button class="vol-btn" id="qpKeyDown" onclick="doKey(-1)">♭</button>
         <span class="vol-label" id="qpKeyLabel">0</span>
         <button class="vol-btn" id="qpKeyUp" onclick="doKey(1)">♯</button>
       </div>
+
+      <!-- 原伴唱切换 -->
       <button class="mini-ctrl" id="qpTrack" onclick="doToggleTrack()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/></svg>
       </button>
+
+      <!-- 播放/暂停 -->
       <button class="mini-ctrl play-btn" id="qpPlay" onclick="doTogglePlay()">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6,3 20,12 6,21"/></svg>
       </button>
+
+      <!-- 切歌 -->
       <button class="mini-ctrl" onclick="doNext()">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="6,3 18,12 6,21"/><line x1="21" y1="3" x2="21" y2="21"/></svg>
       </button>
+
+      <!-- 音量分段控制 -->
       <div class="qp-volume">
         <button class="vol-btn" onclick="doVolume(-5)">−</button>
         <span class="vol-label" id="qpVolLabel">72</span>
@@ -184,7 +745,8 @@ body {
       </div>
     </div>
   </div>
-  <div class="qp-divider"><span>下一首</span></div>
+
+  <div class="qp-divider"><span>待播序列</span></div>
   <div class="qp-body" id="qpBody"></div>
 </div>
 <div class="toast" id="toast"></div>
@@ -193,6 +755,30 @@ const API = '';
 async function api(path, opts) { const r = await fetch(API + path, opts); if (!r.ok) throw new Error(r.status); return r.json(); }
 let currentTab = 'featured', featured = [], queueData = {current:null,upcoming:[],isPlaying:false};
 let playback = {isPlaying:false, volume:72, key:0, track:'vocal', currentSong:null};
+const coverPlaceholder = document.getElementById('qpCover').firstElementChild;
+let currentCoverUrl = '', requestedCoverUrl = '';
+
+function updateNowCover() {
+  const url = playback.currentSong?.coverUrl || '';
+  const container = document.getElementById('qpCover');
+  if (url !== currentCoverUrl) {
+    currentCoverUrl = url;
+    requestedCoverUrl = '';
+    container.replaceChildren(coverPlaceholder);
+  }
+  if (!url || requestedCoverUrl === url ||
+      !document.getElementById('queuePanel').classList.contains('open')) return;
+  requestedCoverUrl = url;
+  const image = new Image();
+  image.alt = '';
+  image.decoding = 'async';
+  image.onload = () => {
+    if (currentCoverUrl === url) container.replaceChildren(image);
+  };
+  // A missing cover keeps the placeholder; do not retry on each state poll.
+  image.onerror = () => {};
+  image.src = url;
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -206,6 +792,7 @@ async function pollState() {
   try {
     const [q, p] = await Promise.all([api('/api/queue'), api('/api/playback')]);
     queueData = q; playback = p;
+    updateNowCover();
     document.getElementById('qpVolLabel').textContent = playback.volume;
     updateKeyUI();
     renderTrackButton();
@@ -243,7 +830,7 @@ function switchTab(tab) {
 }
 
 function renderSearchDefault() {
-  document.getElementById('content').innerHTML = '<div class="empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" opacity="0.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><br>输入歌名、歌手或编号搜索</div>';
+  document.getElementById('content').innerHTML = '<div class="empty"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--md-sys-on-surface-variant)" stroke-width="1.5" opacity="0.4"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><br><div style="margin-top:10px">输入歌名、歌手或编号搜索</div></div>';
 }
 
 async function loadFeatured() { try { featured = await api('/api/featured'); } catch(e) { featured = []; } renderFeatured(); }
@@ -268,26 +855,26 @@ async function doSearch() {
     const r = await api('/api/search?q='+encodeURIComponent(q));
     const el = document.getElementById('content');
     if (!r.length) { el.innerHTML = `<div class="empty"><div class="icon">😕</div>没有找到 "${q}"</div>`; return; }
-    el.innerHTML = `<div class="section-header">${r.length} 首</div>` + r.map((s,i) => songHtml(s,i+1)).join('');
+    el.innerHTML = `<div class="section-header">${r.length} 首检索结果</div>` + r.map((s,i) => songHtml(s,i+1)).join('');
     bindAdds();
   } catch(e) { toast('搜索失败','warn'); }
 }
 
 function renderExt() {
-  document.getElementById('content').innerHTML = '<div class="section-header">🔗 外链点歌</div><div style="padding:16px;color:var(--muted);font-size:13px;font-weight:600;line-height:1.6">支持 B站 bilibili.com/video/BV... 或 BV 号<br>解析后自动加入队列</div>';
+  document.getElementById('content').innerHTML = '<div class="section-header">🔗 外链点歌</div><div style="padding:16px 8px;color:var(--md-sys-on-surface-variant);font-size:13px;font-weight:600;line-height:1.7">支持 B 站 bilibili.com/video/BV... 或直接输入 BV 号<br>解析多分 P 视频可自由选集</div>';
 }
 let resolveData = null;
 
 async function doResolve() {
   const input = document.getElementById('extLinkInput').value.trim(), st = document.getElementById('extStatus');
-  if (!input) return; st.style.display='block'; st.textContent='⏳ 解析中...'; st.style.color='var(--amber)';
+  if (!input) return; st.style.display='block'; st.textContent='⏳ 解析中...'; st.style.color='var(--md-sys-secondary)';
   try {
     const r = await api('/api/resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:input})});
     resolveData = {url: input, pages: r.pages, bvid: r.bvid, selected: r.selectedPage};
     document.getElementById('extLinkInput').value = '';
     showPageSelector(r);
     st.style.display='none';
-  } catch(e) { st.textContent = '❌ 解析失败，请检查链接'; st.style.color = 'var(--red)'; setTimeout(()=>st.style.display='none',3000); }
+  } catch(e) { st.textContent = '❌ 解析失败，请检查链接'; st.style.color = 'var(--md-sys-error)'; setTimeout(()=>st.style.display='none',3000); }
 }
 
 function showPageSelector(r) {
@@ -295,22 +882,20 @@ function showPageSelector(r) {
   const pages = r.pages || [];
   const sel = r.selectedPage || 1;
   const coverHtml = r.coverUrl
-    ? '<img src="/api/cover?url=' + encodeURIComponent(r.coverUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:8px" onerror="this.style.display=\'none\'">'
-    : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8.5" cy="8.5" r="2"/><path d="M2 16l5-5 4 4 3-3 8 6v4H2z"/></svg>';
-  el.innerHTML = '<div class="section-header">🔗 外链点歌</div>' +
-    '<div style="padding:14px">' +
-      '<div style="display:flex;gap:14px;margin-bottom:14px">' +
-        '<div style="width:120px;aspect-ratio:16/10;flex-shrink:0;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;overflow:hidden">' + coverHtml + '</div>' +
+    ? '<img src="/api/cover?url=' + encodeURIComponent(r.coverUrl) + '" style="width:100%;height:100%;object-fit:cover;border-radius:12px" onerror="this.style.display=\'none\'">'
+    : '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--md-sys-on-surface-variant)" stroke-width="1.5"><rect x="2" y="2" width="20" height="20" rx="3"/><circle cx="8.5" cy="8.5" r="2"/><path d="M2 16l5-5 4 4 3-3 8 6v4H2z"/></svg>';
+  el.innerHTML = '<div class="section-header">🔗 外链分P列表</div>' +
+    '<div style="padding:10px 4px">' +
+      '<div style="display:flex;gap:12px;margin-bottom:14px;background:var(--md-sys-surface-container);padding:10px;border-radius:16px;border:1px solid var(--md-sys-outline)">' +
+        '<div style="width:110px;aspect-ratio:16/10;flex-shrink:0;border-radius:10px;background:var(--md-sys-surface-container-highest);display:flex;align-items:center;justify-content:center;overflow:hidden">' + coverHtml + '</div>' +
         '<div style="flex:1;min-width:0">' +
-          '<div style="font-size:16px;font-weight:800;line-height:1.3;margin-bottom:6px;color:var(--cream)">' + r.title + '</div>' +
-          '<div style="font-size:13px;color:var(--muted);font-weight:600">UP：' + (r.ownerName||'未知') + '</div>' +
-          '<div style="font-size:11px;color:var(--muted);margin-top:3px">共 ' + pages.length + ' 个分P</div>' +
+          '<div style="font-size:14px;font-weight:800;line-height:1.3;margin-bottom:6px;color:var(--md-sys-on-surface)">' + r.title + '</div>' +
+          '<div style="font-size:12px;color:var(--md-sys-on-surface-variant);font-weight:600">UP：' + (r.ownerName||'未知') + '</div>' +
+          '<div style="font-size:11px;color:var(--md-sys-primary);font-weight:700;margin-top:4px">共 ' + pages.length + ' 个分P</div>' +
         '</div>' +
       '</div>' +
-      '<div style="height:1px;background:var(--line);margin-bottom:10px"></div>' +
-      '<div style="font-size:11px;font-weight:800;color:var(--muted);margin-bottom:6px">选择分P</div>' +
-      pages.map(p => '<div class="song-card" data-page="' + p.page + '" style="' + (p.page===sel?'background:var(--surface)':'') + ';border-radius:8px;margin-bottom:2px">' +
-        '<div class="idx" style="background:' + (p.page===sel?'var(--teal)':'var(--surface2)') + ';color:' + (p.page===sel?'#111216':'var(--amber)') + '">P' + p.page + '</div>' +
+      pages.map(p => '<div class="song-card" data-page="' + p.page + '" style="' + (p.page===sel?'border-color:var(--md-sys-primary);':'') + '">' +
+        '<div class="idx" style="background:' + (p.page===sel?'var(--md-sys-primary)':'var(--md-sys-surface-container-high)') + ';color:' + (p.page===sel?'#003824':'var(--md-sys-secondary)') + '">P' + p.page + '</div>' +
         '<div class="info"><div class="stitle">' + p.title + '</div><div class="smeta">' + fmtTime(p.duration) + '</div></div>' +
         '<button class="bump-btn" data-page="' + p.page + '" title="顶到下一首">↑</button>' +
         '<button class="add-btn" data-page="' + p.page + '">点歌</button></div>').join('') +
@@ -323,15 +908,15 @@ function showPageSelector(r) {
 async function addPage(page, bump) {
   if (!resolveData) return;
   const st = document.getElementById('extStatus');
-  st.style.display='block'; st.textContent = bump ? '⏳ 顶歌中...' : '⏳ 解析分P中...'; st.style.color='var(--amber)';
+  st.style.display='block'; st.textContent = bump ? '⏳ 顶歌中...' : '⏳ 解析分P中...'; st.style.color='var(--md-sys-secondary)';
   try {
     const r = await api('/api/resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({url:resolveData.url, page})});
     toast(bump ? '已顶到下一首：' + r.title : '已加入：' + r.title);
     if (bump && r.queueId) await bumpToNext(r.queueId);
     resolveData = null;
     await pollState(); renderFeatured();
-    st.textContent = '✅ ' + r.title; st.style.color = 'var(--teal)';
-  } catch(e) { st.textContent = '❌ 解析失败'; st.style.color = 'var(--red)'; }
+    st.textContent = '✅ ' + r.title; st.style.color = 'var(--md-sys-primary)';
+  } catch(e) { st.textContent = '❌ 解析失败'; st.style.color = 'var(--md-sys-error)'; }
   setTimeout(()=>st.style.display='none',3000);
 }
 
@@ -346,14 +931,13 @@ async function removeFromQueue(id) { try { await api('/api/queue/'+id, {method:'
 async function bumpToNext(id) { try { await api('/api/queue/bump/'+id, {method:'POST'}); toast('已顶到下一首'); await pollState(); } catch(e) {} }
 
 async function doTogglePlay() { try { await api(playback.isPlaying?'/api/playback/pause':'/api/playback/play', {method:'POST'}); await pollState(); } catch(e) {} }
-async function doNext() { try { await api('/api/playback/next', {method:'POST'}); ctime=0; await pollState(); } catch(e) {} }
+async function doNext() { try { await api('/api/playback/next', {method:'POST'}); await pollState(); } catch(e) {} }
 async function doToggleTrack() {
   try { const r = await api('/api/playback/track', {method:'POST'});
     playback.track = r.track;
     renderTrackButton();
     toast(playback.track==='accompaniment'?'已切换为伴奏':'已切换为原唱'); } catch(e) {}
 }
-// 原唱/伴奏按钮：统一用 innerHTML 渲染完整 SVG，避免 textContent 覆盖成 emoji
 function renderTrackButton() {
   const isVocal = playback.track!=='accompaniment';
   document.getElementById('qpTrack').innerHTML = isVocal
@@ -362,18 +946,17 @@ function renderTrackButton() {
 }
 async function doVolume(delta) { playback.volume = Math.max(0, Math.min(100, playback.volume + delta)); document.getElementById('qpVolLabel').textContent = playback.volume; try { await api('/api/playback/volume', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({volume:playback.volume})}); } catch(e) {} }
 async function doKey(delta) { playback.key = Math.max(-6, Math.min(6, playback.key + delta)); updateKeyUI(); try { await api('/api/playback/key', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({delta})}); } catch(e) {} }
-// label 显示 key 数字（+1 表示升 1 key）；−/+ 按钮分别用 ♭ / ♯ 符号
 function updateKeyUI() {
   const k = playback.key;
   document.getElementById('qpKeyLabel').textContent = (k>0?'+':'')+k;
 }
 
-function openQueue() { document.getElementById('queuePanel').classList.add('open'); document.getElementById('qpBackdrop').classList.add('open'); }
+function openQueue() { document.getElementById('queuePanel').classList.add('open'); document.getElementById('qpBackdrop').classList.add('open'); pollState(); }
 function closeQueue() { document.getElementById('queuePanel').classList.remove('open'); document.getElementById('qpBackdrop').classList.remove('open'); }
 function updateQueueList() {
   const el = document.getElementById('qpBody');
   if (!queueData.upcoming.length) { el.innerHTML = '<div class="empty" style="padding:24px"><div class="icon">📋</div>队列为空，去点一首歌吧</div>'; return; }
-  el.innerHTML = queueData.upcoming.map((q,i) => `<div class="queue-card"><div class="qidx">${String(i+1).padStart(2,'0')}</div><div class="qinfo"><div class="qtitle">${q.title}</div><div class="qartist">${q.artist||''}</div></div><div style="display:flex;gap:4px"><button class="qbtn" onclick="bumpToNext('${q.id}')">↑</button><button class="qbtn danger" onclick="removeFromQueue('${q.id}')">✕</button></div></div>`).join('');
+  el.innerHTML = queueData.upcoming.map((q,i) => `<div class="queue-card"><div class="qidx">${String(i+1).padStart(2,'0')}</div><div class="qinfo"><div class="qtitle">${q.title}</div><div class="qartist">${q.artist||''}</div></div><div style="display:flex;gap:6px"><button class="qbtn" onclick="bumpToNext('${q.id}')">↑</button><button class="qbtn danger" onclick="removeFromQueue('${q.id}')">✕</button></div></div>`).join('');
 }
 
 function toast(msg, type) { const t=document.getElementById('toast'); t.textContent=msg; t.className='toast show'+(type==='warn'?' warn':''); clearTimeout(t._tid); t._tid=setTimeout(()=>t.classList.remove('show'),1800); }

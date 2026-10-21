@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:flutter/services.dart';
 
 import '../domain/queue_item.dart';
+import '../domain/media_asset.dart';
 import '../domain/song.dart';
 import 'bilibili_account_service.dart';
 import 'bilibili_resolver.dart';
 import 'lan_address_resolver.dart';
 import 'playback_service.dart';
+import 'playback_asset_cache.dart';
 import 'queue_service.dart';
 import 'search_service.dart';
 
@@ -18,17 +20,21 @@ class LanServer {
     required SearchService searchService,
     required PlaybackService playbackService,
     required BilibiliAccountService bilibiliAccountService,
+    PlaybackAssetCache? assetCache,
     InternetAddress? bindAddress,
   })  : _queueService = queueService,
         _searchService = searchService,
         _playbackService = playbackService,
         _bilibiliAccountService = bilibiliAccountService,
+        _assetCache = assetCache,
         _bindAddress = bindAddress ?? InternetAddress.anyIPv4;
 
   final QueueService _queueService;
   final SearchService _searchService;
   final PlaybackService _playbackService;
   final BilibiliAccountService _bilibiliAccountService;
+  final PlaybackAssetCache? _assetCache;
+  HttpClient? _coverClient;
   final InternetAddress _bindAddress;
   HttpServer? _server;
   String? _lanIp;
@@ -49,6 +55,8 @@ class LanServer {
   }
 
   Future<void> stop() async {
+    _coverClient?.close(force: true);
+    _coverClient = null;
     await _server?.close(force: true);
     _server = null;
     _lanIp = null;
@@ -72,7 +80,8 @@ class LanServer {
 
     // ── Static HTML ──────────────────────────────────────────
     if (method == 'GET' && (path == '/' || path == '/index.html')) {
-      await _serveFile(request, 'html/mobile-request.html', 'text/html; charset=utf-8');
+      await _serveFile(
+          request, 'html/mobile-request.html', 'text/html; charset=utf-8');
       return;
     }
     if (method == 'GET' && path.startsWith('/static/')) {
@@ -88,7 +97,12 @@ class LanServer {
     }
   }
 
-  Future<void> _handleApi(HttpRequest request, String method, String path) async {
+  Future<void> _handleApi(
+      HttpRequest request, String method, String path) async {
+    if (method == 'GET' && path == '/api/playback/cover') {
+      await _servePlaybackCover(request);
+      return;
+    }
     // GET /api/cover?url= — 代理封面图片（绕过 B站 referer 限制）
     if (method == 'GET' && path == '/api/cover') {
       await _proxyCover(request);
@@ -202,7 +216,8 @@ class LanServer {
       final payload = jsonDecode(body) as Map<String, dynamic>;
       final vol = (payload['volume'] as num?)?.toInt() ?? 72;
       _playbackService.setVolume(vol);
-      _json(request, 200, {'ok': true, 'volume': _playbackService.state.volume});
+      _json(
+          request, 200, {'ok': true, 'volume': _playbackService.state.volume});
       return;
     }
 
@@ -229,11 +244,14 @@ class LanServer {
         'volume': state.volume,
         'key': state.key,
         'track': state.audioTrackMode.name,
-        'currentSong': state.currentSong != null ? {
-          'id': state.currentSong!.id,
-          'title': state.currentSong!.title,
-          'artist': state.currentSong!.artist?.name ?? '',
-        } : null,
+        'currentSong': state.currentSong != null
+            ? {
+                'id': state.currentSong!.id,
+                'title': state.currentSong!.title,
+                'artist': state.currentSong!.artist?.name ?? '',
+                'coverUrl': _playbackCoverUrl(state.currentSong!),
+              }
+            : null,
       });
       return;
     }
@@ -243,7 +261,8 @@ class LanServer {
 
   // ── static files ───────────────────────────────────────────
 
-  Future<void> _serveFile(HttpRequest request, String assetPath, String contentType) async {
+  Future<void> _serveFile(
+      HttpRequest request, String assetPath, String contentType) async {
     try {
       String content;
       // Prefer Flutter asset bundle (works in release builds where the
@@ -279,15 +298,29 @@ class LanServer {
 
   String _mimeType(String ext) {
     switch (ext) {
-      case 'html': return 'text/html; charset=utf-8';
-      case 'css': return 'text/css; charset=utf-8';
-      case 'js': return 'application/javascript; charset=utf-8';
-      case 'json': return 'application/json';
-      case 'png': return 'image/png';
-      case 'jpg': case 'jpeg': return 'image/jpeg';
-      case 'svg': return 'image/svg+xml';
-      case 'woff2': return 'font/woff2';
-      default: return 'application/octet-stream';
+      case 'html':
+        return 'text/html; charset=utf-8';
+      case 'css':
+        return 'text/css; charset=utf-8';
+      case 'js':
+        return 'application/javascript; charset=utf-8';
+      case 'json':
+        return 'application/json';
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'svg':
+        return 'image/svg+xml';
+      case 'woff2':
+        return 'font/woff2';
+      default:
+        return 'application/octet-stream';
     }
   }
 
@@ -362,11 +395,13 @@ class LanServer {
         'quality': result.quality,
         'qualityDesc': result.qualityDesc,
         'selectedPage': result.selectedPage,
-        'pages': result.pages.map((p) => {
-          'page': p.page,
-          'title': p.title,
-          'duration': p.duration,
-        }).toList(),
+        'pages': result.pages
+            .map((p) => {
+                  'page': p.page,
+                  'title': p.title,
+                  'duration': p.duration,
+                })
+            .toList(),
         'added': false,
       });
     } on BilibiliResolveError catch (e) {
@@ -374,6 +409,73 @@ class LanServer {
     } catch (e) {
       _json(request, 500, {'error': 'resolve_failed', 'message': e.toString()});
     }
+  }
+
+  MediaAsset? _catalogCover(Song? song) {
+    if (song == null || song.isExternal) return null;
+    for (final asset in song.assets) {
+      if (asset.type == MediaAssetType.cover) return asset;
+    }
+    return null;
+  }
+
+  String? _playbackCoverUrl(Song song) {
+    final cover = _catalogCover(song);
+    if (cover == null) return null;
+    return Uri(path: '/api/playback/cover', queryParameters: {
+      'songId': song.id,
+      'version': '${cover.version}',
+    }).toString();
+  }
+
+  Future<void> _servePlaybackCover(HttpRequest request) async {
+    final song = _playbackService.state.currentSong;
+    final cover = _catalogCover(song);
+    if (cover == null ||
+        request.uri.queryParameters['songId'] != song!.id ||
+        request.uri.queryParameters['version'] != '${cover.version}') {
+      _json(request, 404, {'error': 'cover_not_found'});
+      return;
+    }
+
+    // Only image requests touch files/network; polling playback is metadata-only.
+    // Resolve relative catalog URLs through the same active endpoint as playback.
+    final source = _assetCache?.playbackPathFor(cover) ??
+        cover.cachedPath ??
+        cover.uri.toString();
+    final uri = Uri.tryParse(source);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      final client = _coverClient ??= HttpClient()
+        ..connectionTimeout = const Duration(seconds: 8);
+      final upstream =
+          await client.getUrl(uri).timeout(const Duration(seconds: 10));
+      cover.headers.forEach(upstream.headers.set);
+      final response =
+          await upstream.close().timeout(const Duration(seconds: 10));
+      if (response.statusCode != HttpStatus.ok) {
+        await response.drain<void>();
+        _json(request, response.statusCode, {'error': 'cover_unavailable'});
+        return;
+      }
+      request.response.headers
+        ..set(HttpHeaders.cacheControlHeader, 'private, max-age=3600')
+        ..contentType = response.headers.contentType ?? ContentType.binary;
+      await request.response.addStream(response);
+    } else {
+      final file = File(uri != null && uri.scheme == 'file'
+          ? uri.toFilePath(windows: Platform.isWindows)
+          : source);
+      if (!await file.exists()) {
+        _json(request, 404, {'error': 'cover_not_found'});
+        return;
+      }
+      request.response.headers
+        ..set(HttpHeaders.cacheControlHeader, 'private, max-age=3600')
+        ..contentType = ContentType.parse(
+            _mimeType(file.path.split('.').last.toLowerCase()));
+      await request.response.addStream(file.openRead());
+    }
+    await request.response.close();
   }
 
   Future<void> _proxyCover(HttpRequest request) async {
@@ -386,7 +488,8 @@ class LanServer {
       final client = HttpClient();
       client.connectionTimeout = const Duration(seconds: 8);
       final req = await client.getUrl(Uri.parse(url));
-      req.headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
+      req.headers.set('User-Agent',
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
       req.headers.set('Referer', 'https://www.bilibili.com');
       final res = await req.close().timeout(const Duration(seconds: 10));
       request.response.statusCode = res.statusCode;

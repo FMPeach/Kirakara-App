@@ -121,6 +121,7 @@ class _KirakaraAppState extends State<KirakaraApp> {
       searchService: searchService,
       playbackService: playbackService,
       bilibiliAccountService: bilibiliAccountService,
+      assetCache: _assetCache,
       bindAddress: widget.lanServerBindAddress,
     );
     stageRenderer = KirakaraStageRenderer(showService: kirakaraShowService);
