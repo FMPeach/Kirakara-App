@@ -5,9 +5,7 @@ import '../domain/lyric_project.dart';
 import '../domain/media_asset.dart';
 import '../domain/song.dart';
 
-/// Qu ku sou suo fu wu — cong LocalDatabase (SQLite) du qu.
-///
-/// Ruo shu ju ku wei kong, hui tui dao nei zhi zui xiao mock shu ju.
+/// 曲库搜索服务，从本地 SQLite 索引读取。
 class SearchService {
   SearchService({required LocalDatabase db}) : _db = db;
 
@@ -138,22 +136,28 @@ class SearchService {
   List<ArtistSummary> get artists {
     if (_cachedArtists != null) return _cachedArtists!;
     final rows = _db.selectMaps(
-      "SELECT a.id, a.name, a.type, a.note, "
-      "COALESCE((SELECT GROUP_CONCAT(c.name, ', ') "
-      "FROM artist_categories ac JOIN categories c ON c.id = ac.category_id "
-      "WHERE ac.artist_id = a.id), '') AS grp "
-      "FROM artists a ORDER BY a.id",
-      ['id', 'name', 'type', 'note', 'grp'],
+      'SELECT id, name, type, note FROM artists ORDER BY id',
+      ['id', 'name', 'type', 'note'],
     );
     if (rows.isEmpty) {
       _cachedArtists = const [];
       return _cachedArtists!;
     }
+    final categoryNames = <String, List<String>>{};
+    final categoryRows = _db.selectMaps(
+      'SELECT ac.artist_id, c.name FROM artist_categories ac '
+      'JOIN categories c ON c.id = ac.category_id ORDER BY c.ord, c.id',
+      ['artistId', 'name'],
+    );
+    for (final row in categoryRows) {
+      (categoryNames[row['artistId'] as String] ??= [])
+          .add(row['name'] as String);
+    }
     _cachedArtists = rows.map((r) => ArtistSummary(
       id: r['id'] as String,
       name: r['name'] as String,
       type: r['type'] as String,
-      group: (r['grp'] as String?) ?? '',
+      categoryNames: List<String>.unmodifiable(categoryNames[r['id']] ?? const []),
       note: (r['note'] as String?) ?? '',
     )).toList();
     return _cachedArtists!;
@@ -163,7 +167,7 @@ class SearchService {
     final all = artists;
     final q = query.trim().toLowerCase();
     return all.where((a) {
-      final catOk = category == '全部' || a.group == category;
+      final catOk = category == '全部' || a.categoryNames.contains(category);
       final searchOk = q.isEmpty ||
           [a.name, a.type, a.group, a.note].join(' ').toLowerCase().contains(q);
       return catOk && searchOk;
@@ -288,15 +292,18 @@ class ArtistSummary {
     required this.id,
     required this.name,
     required this.type,
-    required this.group,
+    required this.categoryNames,
     required this.note,
   });
 
   final String id;
   final String name;
   final String type;
-  final String group;
+  final List<String> categoryNames;
   final String note;
+
+  /// 仅用于展示；分类筛选使用 categoryNames 中的独立分类。
+  String get group => categoryNames.join(', ');
 }
 
 class CategorySummary {

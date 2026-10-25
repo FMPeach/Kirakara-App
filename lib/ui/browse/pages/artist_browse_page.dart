@@ -2,14 +2,19 @@ part of '../../screens/browse_screen.dart';
 
 extension _ArtistBrowsePage on _BrowseScreenState {
   Widget _buildArtistPage() {
-    final artists = widget.searchService.searchArtists(
-      _artistQuery,
-      category: _artistCategory,
-    );
     final categories = [
       '全部',
-      ...widget.searchService.artists.map((artist) => artist.group).toSet(),
+      ...widget.searchService.artists
+          .expand((artist) => artist.categoryNames)
+          .where((name) => name.isNotEmpty)
+          .toSet(),
     ];
+    final activeCategory =
+        categories.contains(_artistCategory) ? _artistCategory : '全部';
+    final artists = widget.searchService.searchArtists(
+      _artistQuery,
+      category: activeCategory,
+    );
 
     return Row(
       children: [
@@ -18,7 +23,7 @@ extension _ArtistBrowsePage on _BrowseScreenState {
           child: _OptionRail(
             title: '地区与类型',
             options: categories,
-            activeOption: _artistCategory,
+            activeOption: activeCategory,
             onBack: widget.onExit,
             onSelected: (category) {
               _update(() => _artistCategory = category);
