@@ -8,6 +8,7 @@ class _SongResultPanel extends StatelessWidget {
     required this.columns,
     required this.onAddSong,
     required this.onBumpSong,
+    this.emptyText = '没有找到匹配歌曲',
   });
 
   final String title;
@@ -16,6 +17,7 @@ class _SongResultPanel extends StatelessWidget {
   final int columns;
   final ValueChanged<Song> onAddSong;
   final ValueChanged<Song> onBumpSong;
+  final String emptyText;
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +34,7 @@ class _SongResultPanel extends StatelessWidget {
             ),
             Expanded(
               child: songs.isEmpty
-                  ? const _EmptyState(text: '没有找到匹配歌曲')
+                  ? _EmptyState(text: emptyText)
                   : GridView.builder(
                       padding: const EdgeInsets.all(16),
                       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(

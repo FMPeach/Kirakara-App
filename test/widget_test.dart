@@ -136,6 +136,49 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('empty category catalog keeps navigation and return available',
+      (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(TickerMode(
+      enabled: false,
+      child: KirakaraApp(
+        databasePath: ':memory:',
+        settingsFilePath: _prepareSettingsFile(''),
+      ),
+    ));
+    await tester.pump();
+
+    await tester.tap(find.text('分类点歌'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('暂无歌曲分类'), findsOneWidget);
+    expect(find.text('返回'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'test');
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('歌名'));
+    await tester.pump();
+    expect(find.text('搜索范围'), findsOneWidget);
+    await tester.tap(find.text('分类'));
+    await tester.pump();
+    expect(find.text('暂无歌曲分类'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('返回'));
+    await tester.pump();
+    expect(find.text('歌名点歌'), findsOneWidget);
+    expect(find.text('分类点歌'), findsOneWidget);
+    await tester.tap(find.text('分类点歌'));
+    await tester.pump();
+    expect(find.text('暂无歌曲分类'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('external-link page shows the Bilibili account rail',
       (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
