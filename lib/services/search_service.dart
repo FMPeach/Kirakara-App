@@ -33,7 +33,7 @@ class SearchService {
 
     final rows = _db.selectMaps(
       'SELECT s.id, s.title, s.artist_line, s.primary_artist_id, s.cover_color '
-      'FROM songs s ORDER BY s.id',
+      'FROM songs s ORDER BY CAST(s.id AS INTEGER) DESC, s.id',
       ['id', 'title', 'artistLine', 'primaryArtistId', 'coverColor'],
     );
     if (rows.isEmpty) {
@@ -136,7 +136,8 @@ class SearchService {
   List<ArtistSummary> get artists {
     if (_cachedArtists != null) return _cachedArtists!;
     final rows = _db.selectMaps(
-      'SELECT id, name, type, note FROM artists ORDER BY id',
+      'SELECT id, name, type, note FROM artists '
+      'ORDER BY CAST(id AS INTEGER) DESC, id',
       ['id', 'name', 'type', 'note'],
     );
     if (rows.isEmpty) {
@@ -240,7 +241,8 @@ class SearchService {
   List<CategorySummary> get categories {
     if (_cachedCategories != null) return _cachedCategories!;
     final rows = _db.selectMaps(
-      "SELECT name, note FROM categories WHERE type = 'song' ORDER BY ord",
+      "SELECT name, note FROM categories WHERE type = 'song' "
+      'ORDER BY CAST(id AS INTEGER) DESC, id',
       ['name', 'note'],
     );
     if (rows.isEmpty) {
