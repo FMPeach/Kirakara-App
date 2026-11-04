@@ -29,6 +29,8 @@ Write-Json $selectionPath $selection
 $verify = Join-Path $PSScriptRoot 'verify-components.ps1'
 $manifestPath = Join-Path $show 'component-manifest.json'
 $original = [IO.File]::ReadAllText($manifestPath)
+$helperManifestPath = Join-Path $helper 'component-manifest.json'
+$originalHelper = [IO.File]::ReadAllText($helperManifestPath)
 $savedShow=$env:KIRAKARA_SHOW_HOST_DLL; $savedHelper=$env:KIRAKARA_CHUNK_HELPER_ROOT
 $savedGitHubEnv=$env:GITHUB_ENV
 $count=0
@@ -37,6 +39,23 @@ try {
   & $verify -ShowDirectory $show -HelperDirectory $helper -SelectionPath $selectionPath -ReceiptPath (Join-Path $testRoot 'receipt.json')
   if ($env:KIRAKARA_SHOW_HOST_DLL -cne (Join-Path $show 'libshow_host.dll')) { throw 'Explicit DLL was not selected.' }
   $count++
+  $releaseSelection = $selection | ConvertTo-Json -Depth 10 | ConvertFrom-Json
+  $releaseSelection.helper | Add-Member -NotePropertyName source -NotePropertyValue release
+  $releaseSelection.helper.PSObject.Properties.Remove('commit')
+  $releaseSelection.helper.PSObject.Properties.Remove('runId')
+  $releaseSelection.helper.PSObject.Properties.Remove('runAttempt')
+  Write-Json $selectionPath $releaseSelection
+  & $verify -ShowDirectory $show -HelperDirectory $helper -SelectionPath $selectionPath -ReceiptPath (Join-Path $testRoot 'release-receipt.json')
+  $count++
+  $invalidReleaseManifest = $originalHelper | ConvertFrom-Json
+  $invalidReleaseManifest.build.runId = 'local'
+  Write-Json $helperManifestPath $invalidReleaseManifest
+  $rejectedRelease=$false
+  try { & $verify -ShowDirectory $show -HelperDirectory $helper -SelectionPath $selectionPath -ReceiptPath (Join-Path $testRoot 'release-rejected.json') } catch { $rejectedRelease=$true }
+  if (-not $rejectedRelease) { throw 'FAIL: Release artifact without an Actions build identity was accepted.' }
+  $count++
+  [IO.File]::WriteAllText($helperManifestPath, $originalHelper, [Text.UTF8Encoding]::new($false))
+  Write-Json $selectionPath $selection
   foreach ($change in @('hash','commit','run','attempt','entry','duplicate','escape','extra')) {
     $manifest = $original | ConvertFrom-Json
     switch ($change) {

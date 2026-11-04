@@ -1,10 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { checkRuntimeLocks, resolveComponent } from './resolve-dependencies.mjs';
+import { checkRuntimeLocks, resolveComponent, resolveComponentForPackaging,
+  resolveReleaseFallback } from './resolve-dependencies.mjs';
 import { shouldBuild } from './build-gate.mjs';
 
 const spec = { repository: 'FMPeach/Kirakara-Show', branch: 'Actions-Test',
   workflow: 'build-show.yml', artifact: 'kirakara-show-windows-x64', runId: null };
+const helperSpec = { repository: 'FMPeach/ChunK-Helper', branch: 'main',
+  workflow: 'build-helper.yml', artifact: '*-windows-x64', runId: null,
+  releaseFallback: { asset: '*-windows-x64.zip' } };
+const trustedHelperRun = { head_branch: 'main',
+  head_repository: { full_name: 'FMPeach/ChunK-Helper' },
+  path: '.github/workflows/build-helper.yml' };
 const commit = 'a'.repeat(40);
 function fixture(changeRun = {}, changeArtifact = {}) {
   const run = { id: 42, run_attempt: 1, status: 'completed', conclusion: 'success',
@@ -20,6 +27,18 @@ function fixture(changeRun = {}, changeArtifact = {}) {
     if (path.includes('/workflows/')) return { workflow_runs: [run] };
     return run;
   } };
+}
+
+function releaseFixture(changeRelease = {}, changeAsset = {}) {
+  const asset = { id: 202, name: 'ChunK-Helper-v0.2.0-windows-x64.zip',
+    state: 'uploaded', size: 12345, digest: `sha256:${'b'.repeat(64)}`, ...changeAsset };
+  return { id: 303, tag_name: 'v0.2', draft: false, prerelease: false,
+    html_url: 'https://github.com/FMPeach/ChunK-Helper/releases/tag/v0.2',
+    assets: [asset], ...changeRelease };
+}
+
+function addRelease(get, releases = [releaseFixture()]) {
+  return async path => path.includes('/releases?') ? releases : get(path);
 }
 
 test('manual request builds even without a version change', () => {
@@ -40,7 +59,61 @@ test('changed request or initial branch builds', () => {
 test('selects a successful dependency and freezes artifact ID/commit', async () => {
   const { get } = fixture();
   const result = await resolveComponent(spec, get);
-  assert.equal(result.runId, '42'); assert.equal(result.artifactId, '101'); assert.equal(result.commit, commit);
+  assert.equal(result.source, 'actions'); assert.equal(result.runId, '42');
+  assert.equal(result.artifactId, '101'); assert.equal(result.commit, commit);
+});
+
+test('uses a verified Release asset when the latest Helper artifact expired', async () => {
+  const { get, requests } = fixture(trustedHelperRun, { expired: true });
+  const result = await resolveComponentForPackaging(helperSpec, addRelease(get));
+  assert.deepEqual({ source: result.source, releaseTag: result.releaseTag,
+    assetId: result.assetId, assetSha256: result.assetSha256 },
+  { source: 'release', releaseTag: 'v0.2', assetId: '202', assetSha256: 'B'.repeat(64) });
+  assert.ok(requests.some(path => path.includes('/artifacts?')));
+});
+
+test('uses a verified Release asset when Helper has no successful Actions build', async () => {
+  const requests = [];
+  const get = async path => {
+    requests.push(path);
+    if (path.includes('/releases?')) return [releaseFixture()];
+    if (path.includes('/workflows/')) return { workflow_runs: [] };
+    throw new Error(`Unexpected request: ${path}`);
+  };
+  const result = await resolveComponentForPackaging(helperSpec, get);
+  assert.equal(result.source, 'release');
+  assert.equal(result.assetName, 'ChunK-Helper-v0.2.0-windows-x64.zip');
+});
+
+test('an explicitly selected Helper run never silently falls back to a Release', async () => {
+  const { get, requests } = fixture(trustedHelperRun, { expired: true });
+  await assert.rejects(resolveComponentForPackaging(helperSpec, addRelease(get), '42'), /missing\/expired/);
+  assert.equal(requests.some(path => path.includes('/releases?')), false);
+});
+
+test('an untrusted Helper build never silently falls back to a Release', async () => {
+  const { get, requests } = fixture({ ...trustedHelperRun,
+    head_repository: { full_name: 'someone/ChunK-Helper' } });
+  await assert.rejects(resolveComponentForPackaging(helperSpec, addRelease(get)), /trusted branch build/);
+  assert.equal(requests.some(path => path.includes('/releases?')), false);
+});
+
+test('Release fallback rejects missing digest and ambiguous matching assets', async () => {
+  await assert.rejects(resolveReleaseFallback(helperSpec,
+    async () => [releaseFixture({}, { digest: null })]), /incomplete identity/);
+  const release = releaseFixture();
+  release.assets.push({ ...release.assets[0], id: 203, name: '纯K助手-v0.3.0-windows-x64.zip' });
+  await assert.rejects(resolveReleaseFallback(helperSpec, async () => [release]), /multiple assets/);
+});
+
+test('Release fallback skips drafts and Releases without a matching Windows package', async () => {
+  const result = await resolveReleaseFallback(helperSpec, async () => [
+    releaseFixture({ draft: true }),
+    releaseFixture({ id: 304, tag_name: 'v0.1' }, { name: 'sources.zip' }),
+    releaseFixture({ id: 305, tag_name: 'v0.2' }),
+  ]);
+  assert.equal(result.releaseId, '305');
+  assert.equal(result.releaseTag, 'v0.2');
 });
 
 for (const name of ['纯K助手-v0.2.0-windows-x64', 'ChunK-Helper-v0.3.0-windows-x64', 'chunk-helper-windows-x64']) {

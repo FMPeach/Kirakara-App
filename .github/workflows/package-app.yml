@@ -83,6 +83,7 @@ jobs:
           github-token: ${{ secrets.DEPENDENCY_ARTIFACTS_TOKEN || github.token }}
           path: build/actions-test/show/
       - name: 下载已发布的助手目录
+        if: fromJSON(needs.prepare.outputs.helper).source == 'actions'
         uses: actions/download-artifact@v4
         with:
           repository: ${{ fromJSON(needs.prepare.outputs.helper).repository }}
@@ -91,6 +92,16 @@ jobs:
           merge-multiple: true
           github-token: ${{ secrets.DEPENDENCY_ARTIFACTS_TOKEN || github.token }}
           path: build/actions-test/helper/
+      - name: 从 Release 下载长期保留的助手目录
+        if: fromJSON(needs.prepare.outputs.helper).source == 'release'
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ secrets.DEPENDENCY_ARTIFACTS_TOKEN || github.token }}
+        run: >-
+          .\tool\ci\download-release-component.ps1
+          -Component helper
+          -SelectionPath build/actions-test/dependencies.json
+          -OutputDirectory build/actions-test/helper
       - name: 校验产物并设置本次构建输入
         shell: powershell
         run: >-

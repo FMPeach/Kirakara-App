@@ -12,6 +12,9 @@
     "branch": "main",
     "workflow": "build-helper.yml",
     "artifact": "*-windows-x64",
+    "releaseFallback": {
+      "asset": "*-windows-x64.zip"
+    },
     "runId": null
   }
 }

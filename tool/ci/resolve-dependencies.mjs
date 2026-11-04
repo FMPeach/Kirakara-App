@@ -1,6 +1,18 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+class DependencyResolutionError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.code = code;
+  }
+}
+
+function wildcardPattern(pattern) {
+  return new RegExp(`^${pattern.split('*')
+    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 'u');
+}
+
 export function checkRuntimeLocks(readJson) {
   const runtime = readJson('native/prebuilt.lock.json');
   const data = readJson('third_party/data.lock.json');
@@ -26,7 +38,8 @@ export async function resolveComponent(spec, get, override) {
     ? await get(`${base}/runs/${requested}`)
     : (await get(`${base}/workflows/${spec.workflow}/runs?branch=${encodeURIComponent(spec.branch)}&status=success&per_page=50`))
       .workflow_runs.find(value => ['push', 'workflow_dispatch'].includes(value.event));
-  if (!run) throw new Error(`No successful build for ${spec.repository}@${spec.branch}; build the dependency first.`);
+  if (!run) throw new DependencyResolutionError('no-successful-build',
+    `No successful build for ${spec.repository}@${spec.branch}; build the dependency first.`);
   if (run.status !== 'completed' || run.conclusion !== 'success' ||
       !['push', 'workflow_dispatch'].includes(run.event) || run.head_branch !== spec.branch ||
       run.head_repository?.full_name !== spec.repository ||
@@ -35,16 +48,59 @@ export async function resolveComponent(spec, get, override) {
     throw new Error(`Dependency run ${run.id} is not a successful trusted branch build of ${spec.repository}.`);
   }
   const { artifacts } = await get(`${base}/runs/${run.id}/artifacts?per_page=100`);
-  const artifactPattern = new RegExp(`^${spec.artifact.split('*')
-    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`, 'u');
+  const artifactPattern = wildcardPattern(spec.artifact);
   const matches = artifacts.filter(value => artifactPattern.test(value.name));
   if (matches.length !== 1 || matches[0].expired ||
       !Number.isFinite(Date.parse(matches[0].expires_at)) || Date.parse(matches[0].expires_at) <= Date.now()) {
-    throw new Error(`Artifact ${spec.artifact} is missing/expired in run ${run.id}; rebuild the dependency. No older build will be substituted.`);
+    throw new DependencyResolutionError('artifact-unavailable',
+      `Artifact ${spec.artifact} is missing/expired in run ${run.id}; rebuild the dependency. No older build will be substituted.`);
   }
-  return { repository: spec.repository, branch: spec.branch, workflow: spec.workflow,
+  return { source: 'actions', repository: spec.repository, branch: spec.branch, workflow: spec.workflow,
     runId: String(run.id), commit: run.head_sha, runAttempt: String(run.run_attempt),
     artifactId: String(matches[0].id), artifactName: matches[0].name, url: run.html_url };
+}
+
+export async function resolveReleaseFallback(spec, get) {
+  const assetPatternText = spec.releaseFallback?.asset;
+  if (typeof assetPatternText !== 'string' || !assetPatternText) {
+    throw new Error(`Release fallback is not configured for ${spec.repository}.`);
+  }
+  const releases = await get(`/repos/${spec.repository}/releases?per_page=50`);
+  if (!Array.isArray(releases)) throw new Error(`Invalid Releases response for ${spec.repository}.`);
+  const assetPattern = wildcardPattern(assetPatternText);
+  for (const release of releases) {
+    if (release.draft) continue;
+    const matches = Array.isArray(release.assets)
+      ? release.assets.filter(value => assetPattern.test(value.name)) : [];
+    if (matches.length > 1) {
+      throw new Error(`Release ${release.tag_name} contains multiple assets matching ${assetPatternText}.`);
+    }
+    if (!matches.length) continue;
+    const asset = matches[0];
+    const digest = /^sha256:([a-f0-9]{64})$/i.exec(asset.digest ?? '');
+    if (!Number.isSafeInteger(release.id) || release.id <= 0 ||
+        typeof release.tag_name !== 'string' || !release.tag_name ||
+        !Number.isSafeInteger(asset.id) || asset.id <= 0 || asset.state !== 'uploaded' ||
+        !Number.isSafeInteger(asset.size) || asset.size <= 0 || !digest) {
+      throw new Error(`Release asset ${asset.name} has incomplete identity or SHA-256 metadata.`);
+    }
+    return { source: 'release', repository: spec.repository, branch: spec.branch,
+      workflow: spec.workflow, releaseId: String(release.id), releaseTag: release.tag_name,
+      assetId: String(asset.id), assetName: asset.name, assetSize: asset.size,
+      assetSha256: digest[1].toUpperCase(), url: release.html_url };
+  }
+  throw new Error(`No published Release asset matching ${assetPatternText} exists for ${spec.repository}.`);
+}
+
+export async function resolveComponentForPackaging(spec, get, override) {
+  try {
+    return await resolveComponent(spec, get, override);
+  } catch (error) {
+    const explicitlyPinned = Boolean(override || spec.runId);
+    if (explicitlyPinned || !spec.releaseFallback ||
+        !['no-successful-build', 'artifact-unavailable'].includes(error?.code)) throw error;
+    return resolveReleaseFallback(spec, get);
+  }
 }
 
 async function main() {
@@ -64,7 +120,7 @@ async function main() {
   };
   const [show, helper] = await Promise.all([
     resolveComponent(config.show, get, process.env.SHOW_RUN_ID),
-    resolveComponent(config.helper, get, process.env.HELPER_RUN_ID),
+    resolveComponentForPackaging(config.helper, get, process.env.HELPER_RUN_ID),
   ]);
   mkdirSync('build/actions-test', { recursive: true });
   writeFileSync('build/actions-test/dependencies.json', `${JSON.stringify({ schemaVersion: 1, show, helper }, null, 2)}\n`);
@@ -72,7 +128,9 @@ async function main() {
     appendFileSync(process.env.GITHUB_OUTPUT, `${key}=${JSON.stringify(value)}\n`);
   }
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
-    `## Selected prebuilt dependencies\n\n${[show, helper].map(value => `- ${value.repository}: [run ${value.runId}](${value.url}), commit \`${value.commit}\``).join('\n')}\n`);
+    `## Selected prebuilt dependencies\n\n${[show, helper].map(value => value.source === 'release'
+      ? `- ${value.repository}: [Release ${value.releaseTag}](${value.url}), asset \`${value.assetName}\``
+      : `- ${value.repository}: [run ${value.runId}](${value.url}), commit \`${value.commit}\``).join('\n')}\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

@@ -20,13 +20,26 @@ function Test-Component([string]$Directory, [string]$Component, [string]$EntryPo
   }
   $manifestPath = Join-Path $Directory 'component-manifest.json'
   $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding utf8 | ConvertFrom-Json
+  $source = if ($Expected.PSObject.Properties.Name -contains 'source') { [string]$Expected.source } else { 'actions' }
   if ($manifest.schemaVersion -ne 1 -or $manifest.component -cne $Component -or
       $manifest.target -cne 'windows-x64' -or $manifest.entryPoint -cne $EntryPoint -or
-      $manifest.source.repository -cne $Expected.repository -or
-      $manifest.source.commit -cne $Expected.commit -or
-      [string]$manifest.build.runId -cne [string]$Expected.runId -or
-      [string]$manifest.build.runAttempt -cne [string]$Expected.runAttempt) {
+      $manifest.source.repository -cne $Expected.repository) {
     throw "Artifact identity does not match the selected build: $Component"
+  }
+  if ($source -ceq 'actions') {
+    if ($manifest.source.commit -cne $Expected.commit -or
+        [string]$manifest.build.runId -cne [string]$Expected.runId -or
+        [string]$manifest.build.runAttempt -cne [string]$Expected.runAttempt) {
+      throw "Artifact identity does not match the selected Actions build: $Component"
+    }
+  } elseif ($source -ceq 'release') {
+    if ($manifest.source.commit -notmatch '^[a-fA-F0-9]{40}$' -or
+        [string]$manifest.build.runId -notmatch '^[1-9][0-9]*$' -or
+        [string]$manifest.build.runAttempt -notmatch '^[1-9][0-9]*$') {
+      throw "Release artifact does not contain a valid Actions build identity: $Component"
+    }
+  } else {
+    throw "Unsupported dependency source: $source"
   }
   $known = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
   foreach ($file in @($manifest.files)) {

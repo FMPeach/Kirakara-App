@@ -1,11 +1,11 @@
 # GitHub 组合打包测试
 
-工作流默认在 main 使用，`Actions-Test` 可用于测试。构建不会自动写回版本或构建请求；目前只生成便携包附件，不自动创建 Release。
+工作流默认在 main 使用，`Actions-Test` 可用于测试。构建不会自动写回版本或构建请求；App 自己目前只生成便携包附件，不自动创建 Release。
 
 ```text
-Show 仓库独立构建 DLL ─────┐
-                         ├─ App 下载两份成功的附件 → 校验 → flutterw 构建 → ZIP
-纯K助手仓库独立发布程序 ────┘
+Show 仓库独立构建 DLL ──────────┐
+                             ├─ App 下载并校验 → flutterw 构建 → ZIP
+纯K助手 Actions 构件 / Release ─┘
 ```
 
 ## 先准备两份依赖
@@ -22,11 +22,14 @@ App 默认消费两个仓库 main 分支的最新成功构建，不追随尚未�
 
 - `repository`、`branch`：产物所属仓库和分支。
 - `workflow`、`artifact`：对应工作流文件名及附件名称。附件名支持 `*` 匹配任意字符，但必须且只能匹配到一份附件；助手默认使用 `*-windows-x64`，兼容带版本的下载文件名。
+- `releaseFallback.asset`：只用于纯K助手。最新 Actions 构件缺失或过期时，从最新一份含有匹配资产的非草稿 Release 取包。
 - `runId`：填成功的 Actions 构建编号可以固定版本；`null` 使用指定分支最近一次成功构建。
 
-App 在分配 Windows runner 前一次性确定两个构建编号、提交和附件 ID。随后只消费选定的附件，不在构建途中重新寻找「最新版」。缺失、失败、过期、分支不符、PR 构建、文件哈希不符都会明确停止，不换用旧附件或本地路径。每份附件保留 7 天。
+App 在分配 Windows runner 前一次性确定依赖。Show 始终严格使用选定的 Actions 构件；纯K助手优先使用最新 Actions 构件，仅当它不存在或已经过期时才退到 Helper 仓库的 Release。显式填写 `runId` 时不会退回 Release，失败构建、分支不符、PR 构建和身份或哈希不符也不会被兜底掩盖。
 
-跨仓库附件下载需要令牌。公开依赖先使用工作流自带 `GITHUB_TOKEN`；如受访问规则限制或依赖仍为私有仓库，在 App Actions secrets 中配置 `DEPENDENCY_ARTIFACTS_TOKEN`，仅授权两个依赖仓库的 Actions 读取权限。不要把令牌或本机 SSH 密钥写进配置文件。
+Actions 构件仍按工作流设置保留 7 天，便于查看单次构建；Helper Release 资产不会按这个期限自动过期。Release ZIP 的大小和 GitHub SHA-256 会在解压前核对，解压后仍执行原有组件清单、文件哈希、入口和 x64 检查。Show 的选择和下载方式没有改变。
+
+跨仓库 Actions 构件和 Release 资产下载需要令牌。公开依赖先使用工作流自带 `GITHUB_TOKEN`；如受访问规则限制或依赖仍为私有仓库，在 App Actions secrets 中配置 `DEPENDENCY_ARTIFACTS_TOKEN`，仅授权两个依赖仓库的 Actions 与 Release 读取权限。不要把令牌或本机 SSH 密钥写进配置文件。
 
 ## 云端需要能下载运行包
 
