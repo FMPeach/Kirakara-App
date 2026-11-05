@@ -42,6 +42,7 @@ class _AvatarLetter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final name = text.trim();
     return Container(
       width: size,
       height: size,
@@ -59,7 +60,7 @@ class _AvatarLetter extends StatelessWidget {
         border: Border.all(color: const Color(0x29ffffff)),
       ),
       child: Text(
-        text,
+        name.isEmpty ? '?' : name.characters.first,
         style: TextStyle(
           color: Colors.white,
           fontSize: fontSize ?? size * 0.42,

@@ -24,6 +24,11 @@ extension _SongBrowsePage on _BrowseScreenState {
             title: '歌名点歌',
             subtitle: subtitle,
             songs: songs,
+            emptyText: _songQuery.trim().isNotEmpty
+                ? '没有找到匹配歌曲'
+                : _songScope == '全部'
+                    ? '暂无歌曲'
+                    : '该分类暂无歌曲',
             columns: 1,
             onAddSong: _addSong,
             onBumpSong: _bumpSong,

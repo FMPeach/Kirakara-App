@@ -180,7 +180,7 @@ class SearchService {
       'SELECT song_id FROM song_artists WHERE artist_id = ?', ['songId'], [artist.id],
     );
     final ids = rows.map((r) => r['songId'] as String).toSet();
-    if (ids.isEmpty) return searchSongs(query);
+    if (ids.isEmpty) return const [];
 
     final pool = _allSongs().where((s) => ids.contains(s.id));
     return searchSongs(query, source: pool);
@@ -258,16 +258,17 @@ class SearchService {
 
   List<Song> songsForCategory(CategorySummary category, {String query = ''}) {
     final catRows = _db.selectMaps(
-      'SELECT id FROM categories WHERE name = ?', ['id'], [category.name],
+      "SELECT id FROM categories WHERE name = ? AND type = 'song'",
+      ['id'], [category.name],
     );
-    if (catRows.isEmpty) return searchSongs(query);
+    if (catRows.isEmpty) return const [];
 
     final catId = catRows.first['id'] as String;
     final songRows = _db.selectMaps(
       'SELECT song_id FROM song_categories WHERE category_id = ?', ['songId'], [catId],
     );
     final ids = songRows.map((r) => r['songId'] as String).toSet();
-    if (ids.isEmpty) return searchSongs(query);
+    if (ids.isEmpty) return const [];
 
     final pool = _allSongs().where((s) => ids.contains(s.id));
     return searchSongs(query, source: pool);

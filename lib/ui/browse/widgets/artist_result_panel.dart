@@ -68,7 +68,7 @@ class _ArtistCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                _AvatarLetter(text: artist.name.characters.first, size: 72),
+                _AvatarLetter(text: artist.name, size: 72),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -117,12 +117,13 @@ class _ArtistDetailRail extends StatelessWidget {
     required this.onBack,
   });
 
-  final ArtistSummary artist;
+  final ArtistSummary? artist;
   final int songCount;
   final VoidCallback onBack;
 
   @override
   Widget build(BuildContext context) {
+    final selectedArtist = artist;
     return DecoratedBox(
       decoration: _panelDecoration(),
       child: Padding(
@@ -137,13 +138,13 @@ class _ArtistDetailRail extends StatelessWidget {
             ),
             const SizedBox(height: 22),
             _AvatarLetter(
-              text: artist.name.characters.first,
+              text: selectedArtist?.name ?? '',
               size: 376,
               fontSize: 104,
             ),
             const SizedBox(height: 24),
             Text(
-              artist.name,
+              selectedArtist?.name ?? '暂无歌手',
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
@@ -155,7 +156,11 @@ class _ArtistDetailRail extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              '${artist.group} · ${artist.note}',
+              selectedArtist == null
+                  ? ''
+                  : [selectedArtist.group, selectedArtist.note]
+                      .where((text) => text.isNotEmpty)
+                      .join(' · '),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(

@@ -22,12 +22,12 @@ extension _RankingPage on _BrowseScreenState {
           );
     final rankingSongs = activeRanking != null
         ? widget.searchService.songsForRanking(activeRanking).take(8).toList()
-        : widget.searchService.featuredSongs.take(8).toList();
+        : const <Song>[];
     final activeMeta = categories.firstWhere(
       (r) => r.name == (activeRanking?.name ?? ''),
       orElse: () => categories.isNotEmpty
           ? categories.first
-          : (name: '', note: '', icon: Icons.star),
+          : (name: '排行榜', note: '', icon: Icons.star),
     );
 
     return Row(
@@ -49,6 +49,7 @@ extension _RankingPage on _BrowseScreenState {
             title: activeMeta.name,
             subtitle: activeMeta.note,
             songs: rankingSongs,
+            emptyText: '暂无排行数据',
             columns: 1,
             onAddSong: _addSong,
             onBumpSong: _bumpSong,

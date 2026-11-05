@@ -37,7 +37,11 @@ extension _CategoryBrowsePage on _BrowseScreenState {
             title: activeMeta?.name ?? '分类点歌',
             subtitle: activeMeta?.note ?? '曲库同步后即可按分类点歌',
             songs: songs,
-            emptyText: activeMeta == null ? '暂无歌曲分类' : '没有找到匹配歌曲',
+            emptyText: activeMeta == null
+                ? '暂无歌曲分类'
+                : _categoryQuery.trim().isEmpty
+                    ? '该分类暂无歌曲'
+                    : '没有找到匹配歌曲',
             columns: 1,
             onAddSong: _addSong,
             onBumpSong: _bumpSong,
