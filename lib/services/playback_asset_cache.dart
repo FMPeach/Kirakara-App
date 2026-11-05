@@ -217,28 +217,41 @@ class PlaybackAssetCache extends ChangeNotifier {
   /// 落到这首歌时，[ensurePlaybackAssets] 会复用同一个下载任务并等待
   /// 音频/KRL 等必要资源完整落盘。
   void prefetchPlaybackAssets(Song song) {
+    unawaited(cacheQueuedSong(song).catchError((Object _) {}));
+  }
+
+  /// 完整缓存必需资源后结束。供滚动下载调度使用，封面单独在后台处理。
+  /// 视频的起播阈值只影响播放准备，不会提前完成这个 Future。
+  Future<void> cacheQueuedSong(Song song) async {
     _songPriorities.putIfAbsent(song.id, () => 2);
     final videos = <MediaAsset>[];
+    final downloads = <Future<void>>[];
     for (final asset in song.assets) {
-      if (!_isPlaybackAsset(asset) && !_isOptionalAsset(asset)) continue;
+      if (_isOptionalAsset(asset)) {
+        _startBackgroundDownload(song.id, asset,
+            background: true, required: false);
+        continue;
+      }
+      if (!_isPlaybackAsset(asset)) continue;
       if (asset.type == MediaAssetType.video) {
         videos.add(asset);
       }
-      _startBackgroundDownload(
+      downloads.add(_ensureOne(
         song.id,
         asset,
         background: true,
-        required: _isPlaybackAsset(asset),
-      );
+      ));
     }
     final streamVideos = videos
         .where((asset) => existingLocalPathFor(asset) == null)
         .toList(growable: false);
     if (streamVideos.isNotEmpty) {
-      unawaited(_ensureStreamServer().then(
-        (_) => Future.wait(streamVideos.map(_prepareStreamAsset)),
-      ));
+      downloads.add(_ensureStreamServer().then((_) async {
+        await Future.wait(streamVideos.map(_prepareStreamAsset));
+      }));
     }
+    await Future.wait(downloads);
+    _syncLyricProject(song);
   }
 
   /// 队列预热用：所有资源并发启动下载，调用方不等待。
@@ -252,7 +265,9 @@ class PlaybackAssetCache extends ChangeNotifier {
   /// 并写盘。池满后优先级才参与排队；提权会抢占最新、最低优先级连接，
   /// 被抢占资源保留 `.part` 并稍后 Range 续传。
   void setSongPriority(String songId, int priority) {
-    _songPriorities[songId] = priority < 0 ? 0 : priority;
+    final normalized = priority < 0 ? 0 : priority;
+    if (_songPriorities[songId] == normalized) return;
+    _songPriorities[songId] = normalized;
     _downloadConnectionPool.prioritiesChanged();
   }
 

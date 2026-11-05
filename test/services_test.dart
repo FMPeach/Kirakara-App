@@ -1306,12 +1306,18 @@ void main() {
         ),
       ],
     );
-    cache
-      ..setSongPriority(lowPriority.id, 3)
-      ..prefetchPlaybackAssets(lowPriority);
-
-    await Future.wait(client.started.take(15).map((c) => c.future))
-        .timeout(const Duration(seconds: 1));
+    cache.setSongPriority(lowPriority.id, 3);
+    // 缓存查询是异步的。逐个确认入池，明确第 14 个连接确实是最新连接，
+    // 避免用文件 stat 的完成顺序来猜测抢占对象。
+    for (var i = 0; i < lowPriority.assets.length; i++) {
+      cache.prefetchPlaybackAssets(Song(
+        id: lowPriority.id,
+        title: lowPriority.title,
+        category: lowPriority.category,
+        assets: [lowPriority.assets[i]],
+      ));
+      await client.started[i].future.timeout(const Duration(seconds: 1));
+    }
     for (var i = 0;
         i < 40 && cache.progressForSong(lowPriority).downloadedBytes < 2;
         i++) {
@@ -1498,6 +1504,231 @@ void main() {
     expect(progress.assetCount, 3); // cover is optional for playback
     expect(progress.completeAssets, 3);
     expect(progress.isComplete, isTrue);
+  });
+
+  test('queued cache completion waits for full video beyond the ready runway',
+      () async {
+    final releaseVideo = Completer<void>();
+    final client = _FakeAssetHttpClient(releaseVideo: releaseVideo);
+    final cacheDir =
+        await Directory.systemTemp.createTemp('kirakara_cache_completion_');
+    final cache = PlaybackAssetCache(
+      baseUrl: 'http://catalog.test',
+      cacheDir: cacheDir,
+      videoReadyBytes: 2,
+      httpClient: client,
+      mediaHttpClient: client,
+    );
+    addTearDown(() {
+      if (!releaseVideo.isCompleted) releaseVideo.complete();
+      cache.dispose();
+      if (cacheDir.existsSync()) cacheDir.deleteSync(recursive: true);
+    });
+    final song = Song(
+      id: 'completion',
+      title: 'Completion',
+      category: 'Test',
+      assets: [
+        for (final entry in {
+          MediaAssetType.video: 'video.mp4',
+          MediaAssetType.vocal: 'vocal.m4a',
+          MediaAssetType.accompaniment: 'inst.m4a',
+          MediaAssetType.lyric: 'lyrics.krl',
+          MediaAssetType.cover: 'missing-cover.jpg',
+        }.entries)
+          MediaAsset(
+            id: 'completion-${entry.key.name}',
+            type: entry.key,
+            uri: Uri.parse('/media/${entry.value}'),
+          ),
+      ],
+    );
+    var complete = false;
+    final cached = cache.cacheQueuedSong(song).then((_) => complete = true);
+    await cache.ensurePlaybackAssets(song);
+    expect(complete, isFalse);
+    expect(cache.progressForSong(song).completeAssets, 3);
+    expect(client.fullVideoRequests, 1);
+    releaseVideo.complete();
+    await cached;
+    expect(complete, isTrue);
+    expect(cache.isSongFullyCached(song), isTrue);
+    expect(client.notFoundRequests, 1);
+  });
+
+  test('slot download window advances without changing queue or standby',
+      () async {
+    final releaseVideo = Completer<void>();
+    final client = _FakeAssetHttpClient(releaseVideo: releaseVideo);
+    final cacheDir =
+        await Directory.systemTemp.createTemp('kirakara_rolling_download_');
+    final cache = PlaybackAssetCache(
+      baseUrl: 'http://catalog.test',
+      cacheDir: cacheDir,
+      videoReadyBytes: 2,
+      httpClient: client,
+      mediaHttpClient: client,
+    );
+    final queue = QueueService();
+    final slots = PlaybackSlotManager(queueService: queue, assetCache: cache)
+      ..setPrefetchLookahead(1);
+    addTearDown(() {
+      slots.dispose();
+      queue.dispose();
+      if (!releaseVideo.isCompleted) releaseVideo.complete();
+      cache.dispose();
+      if (cacheDir.existsSync()) cacheDir.deleteSync(recursive: true);
+    });
+    for (var i = 0; i < 4; i++) {
+      queue.addSong(Song(
+        id: 'rolling-$i',
+        title: 'Rolling $i',
+        category: 'Test',
+        isExternal: true,
+        assets: [
+          MediaAsset(
+            id: 'rolling-$i-video',
+            type: MediaAssetType.video,
+            uri: Uri.parse('/media/video.mp4'),
+          ),
+        ],
+      ));
+    }
+    for (var i = 0; i < 100 && slots.preparedSongId == null; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    final standby = slots.standbySlot;
+    expect(slots.preparedSongId, 'rolling-0');
+    expect(cache.isSongFullyCached(queue.items.first.song), isFalse);
+    expect(client.fullVideoRequests, 1);
+    // 播放准备的进度任务退出后，后台滚动无需再通知 Slot / Show。
+    await Future<void>.delayed(const Duration(milliseconds: 250));
+    var slotNotifications = 0;
+    slots.addListener(() => slotNotifications++);
+    releaseVideo.complete();
+    for (var i = 0; i < 100 &&
+        !cache.isSongFullyCached(queue.items.first.song); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(cache.isSongFullyCached(queue.items.first.song), isTrue);
+    await Future<void>.delayed(const Duration(milliseconds: 4500));
+    expect(client.fullVideoRequests, 1);
+    for (var i = 0; i < 70 && client.fullVideoRequests < 2; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(client.fullVideoRequests, 2);
+    for (var i = 0; i < 600 && client.fullVideoRequests < 3; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(client.fullVideoRequests, 3);
+    expect(queue.items.map((item) => item.song.id),
+        ['rolling-0', 'rolling-1', 'rolling-2', 'rolling-3']);
+    expect(slots.standbySlot, same(standby));
+    expect(slots.preparedSongId, 'rolling-0');
+    expect(slotNotifications, 0);
+  });
+
+  test('cached standby still swaps synchronously and next preparation skips cooldown',
+      () async {
+    final client = _FakeAssetHttpClient();
+    final cacheDir =
+        await Directory.systemTemp.createTemp('kirakara_download_swap_');
+    final cache = PlaybackAssetCache(
+      baseUrl: 'http://catalog.test',
+      cacheDir: cacheDir,
+      httpClient: client,
+      mediaHttpClient: client,
+    );
+    final queue = QueueService();
+    final slots = PlaybackSlotManager(queueService: queue, assetCache: cache);
+    final playback = PlaybackService(queueService: queue);
+    addTearDown(() {
+      slots.dispose();
+      playback.dispose();
+      queue.dispose();
+      cache.dispose();
+      if (cacheDir.existsSync()) cacheDir.deleteSync(recursive: true);
+    });
+    for (var i = 0; i < 2; i++) {
+      queue.addSong(Song(
+        id: 'swap-$i',
+        title: 'Swap $i',
+        category: 'Test',
+        isExternal: true,
+        assets: [
+          MediaAsset(
+            id: 'swap-$i-video',
+            type: MediaAssetType.video,
+            uri: Uri.parse('/media/video.mp4'),
+          ),
+        ],
+      ));
+    }
+    for (var i = 0; i < 100 && slots.preparedSongId != 'swap-0'; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    final standby = slots.standbySlot;
+    expect(slots.preparedSongId, 'swap-0');
+    expect(client.fullVideoRequests, 1);
+    playback.next();
+    final consumed = slots.consumeStandby(playback.state.currentSong!.id);
+    expect(consumed, same(standby));
+    for (var i = 0; i < 100 && slots.preparedSongId != 'swap-1'; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(slots.preparedSongId, 'swap-1');
+    expect(slots.activeSlot, same(consumed));
+    expect(client.fullVideoRequests, 2);
+  });
+
+  test('terminal queued download failure stays retryable and does not block standby',
+      () async {
+    final client = _FakeAssetHttpClient();
+    final cacheDir =
+        await Directory.systemTemp.createTemp('kirakara_download_failure_');
+    final cache = PlaybackAssetCache(
+      baseUrl: 'http://catalog.test',
+      cacheDir: cacheDir,
+      maxAutomaticRetries: 0,
+      httpClient: client,
+      mediaHttpClient: client,
+    );
+    final queue = QueueService();
+    final slots = PlaybackSlotManager(queueService: queue, assetCache: cache);
+    addTearDown(() {
+      slots.dispose();
+      queue.dispose();
+      cache.dispose();
+      if (cacheDir.existsSync()) cacheDir.deleteSync(recursive: true);
+    });
+    Song song(String id, String path) => Song(
+          id: id,
+          title: id,
+          category: 'Test',
+          isExternal: true,
+          assets: [
+            MediaAsset(
+              id: '$id-video',
+              type: MediaAssetType.video,
+              uri: Uri.parse('/media/$path'),
+            ),
+          ],
+        );
+    final broken = queue.addSong(song('broken', 'missing.mp4'));
+    queue.addSong(song('valid', 'video.mp4'));
+    for (var i = 0; i < 100 && slots.preparedSongId != 'valid'; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(queue.isFailed(broken.id), isTrue);
+    expect(slots.preparedSongId, 'valid');
+    expect(client.notFoundRequests, 1);
+    cache.resetFailuresForSong(broken.song);
+    queue.retry(broken.id);
+    for (var i = 0; i < 100 && !queue.isFailed(broken.id); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(queue.isFailed(broken.id), isTrue);
+    expect(client.notFoundRequests, 2);
   });
 
   for (final statusCode in [

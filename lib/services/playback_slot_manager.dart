@@ -7,6 +7,7 @@ import '../domain/media_asset.dart';
 import '../domain/queue_item.dart';
 import '../domain/song.dart';
 import 'playback_asset_cache.dart';
+import 'playback_download_scheduler.dart';
 import 'playback_slot.dart';
 import 'queue_service.dart';
 
@@ -22,6 +23,14 @@ class PlaybackSlotManager extends ChangeNotifier {
   })  : _queueService = queueService,
         _assetCache = assetCache,
         _onQueueAvailabilityChanged = onQueueAvailabilityChanged {
+    _downloadScheduler = assetCache == null
+        ? null
+        : PlaybackDownloadScheduler(
+            download: assetCache.cacheQueuedSong,
+            isCached: assetCache.isSongFullyCached,
+            setPriority: assetCache.setSongPriority,
+            onFailure: _onDownloadFailed,
+          );
     _queueService.addListener(_onQueueChanged);
   }
 
@@ -29,7 +38,7 @@ class PlaybackSlotManager extends ChangeNotifier {
   final PlaybackAssetCache? _assetCache;
   final VoidCallback? _onQueueAvailabilityChanged;
   int _prefetchLookahead = 3;
-  final Set<String> _prefetchedSongIds = {};
+  late final PlaybackDownloadScheduler? _downloadScheduler;
 
   PlaybackSlot? _activeSlot;
   PlaybackSlot? _standbySlot;
@@ -69,6 +78,7 @@ class PlaybackSlotManager extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _queueService.removeListener(_onQueueChanged);
+    _downloadScheduler?.dispose();
     super.dispose();
   }
 
@@ -96,6 +106,7 @@ class PlaybackSlotManager extends ChangeNotifier {
   }
 
   void _maybePrepareNext() {
+    if (_disposed) return;
     _prefetchQueuedItems();
     final nextItem = _peekNextQueueItem();
     if (nextItem == null) {
@@ -119,32 +130,27 @@ class PlaybackSlotManager extends ChangeNotifier {
   }
 
   void _prefetchQueuedItems() {
-    final cache = _assetCache;
-    if (cache == null) return;
+    _downloadScheduler?.update(
+      queuedSongs: _queueService.items
+          .where((item) => !_queueService.isFailed(item.id))
+          .map((item) => item.song),
+      activeSong: _activeSlot?.song,
+      lookahead: _prefetchLookahead,
+    );
+  }
 
-    final items = _queueService.items
-        .where((item) => !_queueService.isFailed(item.id))
-        .toList(growable: false);
-    final limit =
-        items.length < _prefetchLookahead ? items.length : _prefetchLookahead;
-    final nextPrefetchedIds = <String>{
-      for (var i = 0; i < limit; i++) items[i].song.id,
-    };
-    for (final songId in _prefetchedSongIds.difference(nextPrefetchedIds)) {
-      if (songId != _activeSlot?.songId) {
-        cache.setSongPriority(songId, 4);
+  void _onDownloadFailed(Song song, Object error) {
+    if (_disposed) return;
+    final identity = PlaybackDownloadScheduler.identityOf(song);
+    var changed = false;
+    for (final item in _queueService.items) {
+      if (!_queueService.isFailed(item.id) &&
+          PlaybackDownloadScheduler.identityOf(item.song) == identity) {
+        _queueService.markFailed(item.id, error.toString());
+        changed = true;
       }
     }
-    for (var i = 0; i < limit; i++) {
-      final song = items[i].song;
-      // priority: 0=active, 1=standby, 2+i=queue
-      final priority = (i + 1).clamp(1, 3);
-      cache.setSongPriority(song.id, priority);
-      cache.prefetchPlaybackAssets(song);
-    }
-    _prefetchedSongIds
-      ..clear()
-      ..addAll(nextPrefetchedIds);
+    if (changed) _onQueueAvailabilityChanged?.call();
   }
 
   // ── 准备 standby ──────────────────────────────────────────────
@@ -257,6 +263,10 @@ class PlaybackSlotManager extends ChangeNotifier {
     _assetCache?.setSongPriority(songId, 0);
     _standbySlot = null;
     notifyListeners();
+    // 只更新下载身份，standby 仍由既有播放/队列事件准备。
+    scheduleMicrotask(() {
+      if (!_disposed) _prefetchQueuedItems();
+    });
     return _activeSlot!;
   }
 
@@ -298,13 +308,16 @@ class PlaybackSlotManager extends ChangeNotifier {
   }
 
   bool _isStale(int generation) =>
-      generation != _prepGeneration || _standbySlot?.generation != generation;
+      _disposed ||
+      generation != _prepGeneration ||
+      _standbySlot?.generation != generation;
 
   Future<void> _pollSlotProgress(PlaybackSlot slot, int generation) async {
     final cache = _assetCache;
     if (cache == null || slot.song == null) return;
     while (!_isStale(generation) && slot.state == SlotState.preparing) {
       await Future.delayed(const Duration(milliseconds: 200));
+      if (_isStale(generation) || slot.state != SlotState.preparing) return;
       final song = slot.song!;
       final progress = cache.songProgress(song);
       slot.downloadTotal = progress.total;

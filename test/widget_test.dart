@@ -87,7 +87,7 @@ void main() {
     expect(find.text('报幕文字'), findsOneWidget);
     expect(find.text('深度搜索（慎用）'), findsNothing);
     expect(find.text('媒体缓存'), findsOneWidget);
-    expect(find.text('队列预缓存范围'), findsOneWidget);
+    expect(find.text('后台同时缓存歌曲数'), findsOneWidget);
   });
 
   testWidgets('browse pages render inside the controller shell',

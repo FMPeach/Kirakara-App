@@ -165,7 +165,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       const SizedBox(height: 4),
       ListTile(
         contentPadding: EdgeInsets.zero,
-        title: const Text('队列预缓存范围',
+        title: const Text('队列同时缓存数量',
             style: TextStyle(
                 color: KiraColors.muted, fontWeight: FontWeight.w700)),
         trailing: SegmentedButton<int>(
