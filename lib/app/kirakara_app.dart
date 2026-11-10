@@ -197,6 +197,7 @@ class _KirakaraAppState extends State<KirakaraApp> {
     unawaited(kirakaraShowService.dispose());
     playbackService.disposeService();
     lanServer.stop();
+    lanServer.qrImages.dispose();
     _slotManager.dispose();
     displayManager.dispose();
     settingsService

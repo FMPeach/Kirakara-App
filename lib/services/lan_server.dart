@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -11,6 +12,7 @@ import 'bilibili_resolver.dart';
 import 'lan_address_resolver.dart';
 import 'playback_service.dart';
 import 'playback_asset_cache.dart';
+import 'phone_order_qr_service.dart';
 import 'queue_service.dart';
 import 'search_service.dart';
 
@@ -22,12 +24,16 @@ class LanServer {
     required BilibiliAccountService bilibiliAccountService,
     PlaybackAssetCache? assetCache,
     InternetAddress? bindAddress,
+    Future<String?> Function()? addressResolver,
+    PhoneOrderQrService? qrImages,
   })  : _queueService = queueService,
         _searchService = searchService,
         _playbackService = playbackService,
         _bilibiliAccountService = bilibiliAccountService,
         _assetCache = assetCache,
-        _bindAddress = bindAddress ?? InternetAddress.anyIPv4;
+        _bindAddress = bindAddress ?? InternetAddress.anyIPv4,
+        _addressResolver = addressResolver ?? LanAddressResolver.detectIpv4,
+        qrImages = qrImages ?? PhoneOrderQrService();
 
   final QueueService _queueService;
   final SearchService _searchService;
@@ -38,6 +44,9 @@ class LanServer {
   final InternetAddress _bindAddress;
   HttpServer? _server;
   String? _lanIp;
+  final Future<String?> Function() _addressResolver;
+  final PhoneOrderQrService qrImages;
+  int _addressRevision = 0;
 
   bool get isRunning => _server != null;
   Uri? get localUri {
@@ -47,19 +56,33 @@ class LanServer {
 
   Future<void> start({int port = 7391}) async {
     if (_server != null) return;
-    _lanIp = _bindAddress.address == InternetAddress.anyIPv4.address
-        ? await LanAddressResolver.detectIpv4()
-        : _bindAddress.address;
     _server = await HttpServer.bind(_bindAddress, port);
     _server!.listen(_handleRequest);
+    await refreshAddress();
+  }
+
+  /// 由网络事件调用，保持已绑定的 HTTP 服务和手机会话。
+  Future<void> refreshAddress() async {
+    final server = _server;
+    if (server == null) return;
+    final revision = ++_addressRevision;
+    final address = _bindAddress.address == InternetAddress.anyIPv4.address
+        ? await _addressResolver()
+        : _bindAddress.address;
+    if (_server != server || revision != _addressRevision) return;
+    _lanIp = address;
+    unawaited(qrImages.updateEndpoint(localUri));
   }
 
   Future<void> stop() async {
-    _coverClient?.close(force: true);
-    _coverClient = null;
-    await _server?.close(force: true);
+    ++_addressRevision;
+    final server = _server;
     _server = null;
     _lanIp = null;
+    unawaited(qrImages.updateEndpoint(null));
+    _coverClient?.close(force: true);
+    _coverClient = null;
+    await server?.close(force: true);
   }
 
   Future<void> _handleRequest(HttpRequest request) async {

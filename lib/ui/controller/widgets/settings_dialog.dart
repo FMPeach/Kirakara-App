@@ -159,6 +159,37 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     ]);
   }
 
+  Widget _buildAudienceOverlaySection() => ListenableBuilder(
+        listenable: widget.settingsService,
+        builder: (context, _) {
+          final options = widget.settingsService.audienceOverlay;
+          return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const _SectionHeader(
+                    title: '浮窗设置', icon: Icons.picture_in_picture_alt),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('显示二维码点歌'),
+                  value: options.qrEnabled,
+                  onChanged: (value) =>
+                      widget.settingsService.setAudienceOverlay(
+                    options.copyWith(qrEnabled: value),
+                  ),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('歌曲结束前显示播放列表'),
+                  value: options.queueEnabled,
+                  onChanged: (value) =>
+                      widget.settingsService.setAudienceOverlay(
+                    options.copyWith(queueEnabled: value),
+                  ),
+                ),
+              ]);
+        },
+      );
+
   Widget _buildCacheSection() {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       const _SectionHeader(title: '媒体缓存', icon: Icons.storage_outlined),
@@ -284,9 +315,12 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                       const Divider(height: 32, color: KiraColors.line),
                       _buildLanSection(),
                       const Divider(height: 32, color: KiraColors.line),
+                      _buildAudienceOverlaySection(),
+                      const Divider(height: 32, color: KiraColors.line),
                       _buildCacheSection(),
                       const Divider(height: 32, color: KiraColors.line),
-                      const _SectionHeader(title: '版本', icon: Icons.info_outline),
+                      const _SectionHeader(
+                          title: '版本', icon: Icons.info_outline),
                       const SizedBox(height: 4),
                       const VersionSettingsSection(),
                     ],

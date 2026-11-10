@@ -87,7 +87,11 @@ void main() {
     expect(find.text('报幕文字'), findsOneWidget);
     expect(find.text('深度搜索（慎用）'), findsNothing);
     expect(find.text('媒体缓存'), findsOneWidget);
-    expect(find.text('后台同时缓存歌曲数'), findsOneWidget);
+    expect(find.text('队列同时缓存数量'), findsOneWidget);
+    expect(find.text('浮窗设置'), findsOneWidget);
+    expect(find.text('显示二维码点歌'), findsOneWidget);
+    expect(find.text('歌曲结束前显示播放列表'), findsOneWidget);
+    expect(find.text('显示滚动报幕'), findsNothing);
   });
 
   testWidgets('browse pages render inside the controller shell',

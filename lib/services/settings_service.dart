@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../domain/audience_overlay_options.dart';
+
 /// 设置持久化 — 便携版：所有设置写入 exe 目录旁 settings/settings.json，
 /// 不依赖 %APPDATA% / SharedPreferences。
 class SettingsService extends ChangeNotifier {
@@ -21,10 +23,12 @@ class SettingsService extends ChangeNotifier {
   String _customAnnouncement = '';
   int _prefetchLookahead = 3;
   String _cacheDirectoryPath;
+  AudienceOverlayOptions _audienceOverlay = const AudienceOverlayOptions();
 
   String get customAnnouncement => _customAnnouncement;
   int get prefetchLookahead => _prefetchLookahead;
   String get cacheDirectoryPath => _cacheDirectoryPath;
+  AudienceOverlayOptions get audienceOverlay => _audienceOverlay;
 
   // ── settings/settings.json 读写 ────────────────────────────────
 
@@ -38,6 +42,11 @@ class SettingsService extends ChangeNotifier {
           _customAnnouncementKey: _customAnnouncement,
           _prefetchLookaheadKey: _prefetchLookahead,
           _cacheDirectoryKey: _cacheDirectoryPath,
+          'audience_overlay': {
+            'qr_enabled': _audienceOverlay.qrEnabled,
+            'queue_enabled': _audienceOverlay.queueEnabled,
+            'announcement_enabled': _audienceOverlay.announcementEnabled,
+          },
         }),
         flush: true,
       );
@@ -86,6 +95,20 @@ class SettingsService extends ChangeNotifier {
 
   Future<void> load() async {
     final stored = _read() ?? <String, Object?>{};
+    final overlay = stored['audience_overlay'];
+    if (overlay is Map) {
+      _audienceOverlay = AudienceOverlayOptions(
+        qrEnabled: overlay['qr_enabled'] is bool
+            ? overlay['qr_enabled'] as bool
+            : true,
+        queueEnabled: overlay['queue_enabled'] is bool
+            ? overlay['queue_enabled'] as bool
+            : true,
+        announcementEnabled: overlay['announcement_enabled'] is bool
+            ? overlay['announcement_enabled'] as bool
+            : false,
+      );
+    }
     _customAnnouncement =
         (stored[_customAnnouncementKey] as String?)?.trim() ?? '';
     _prefetchLookahead = ((stored[_prefetchLookaheadKey] as num?)?.toInt() ?? 3)
@@ -103,6 +126,13 @@ class SettingsService extends ChangeNotifier {
     final normalized = value.trim();
     if (_customAnnouncement == normalized) return;
     _customAnnouncement = normalized;
+    if (!_disposed) notifyListeners();
+    _write();
+  }
+
+  Future<void> setAudienceOverlay(AudienceOverlayOptions value) async {
+    if (_audienceOverlay == value) return;
+    _audienceOverlay = value;
     if (!_disposed) notifyListeners();
     _write();
   }

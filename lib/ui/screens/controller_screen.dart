@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'
     show Ticker, TickerCallback, TickerProvider;
-import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../domain/media_asset.dart';
 import '../../domain/playback_state.dart';
@@ -485,65 +484,70 @@ class _ControllerScreenState extends State<ControllerScreen> {
 
   void _showQrDialog() {
     _showControllerDialog<void>(
-      builder: (context) {
-        final uri = widget.lanServer.localUri;
-        return _KiraDialog(
-          title: '手机点歌',
-          width: 430,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (uri != null)
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8),
+      builder: (context) => ListenableBuilder(
+        listenable: widget.lanServer.qrImages,
+        builder: (context, _) {
+          final resource = widget.lanServer.qrImages;
+          final uri = resource.endpoint;
+          final image = resource.image;
+          return _KiraDialog(
+            title: '手机点歌',
+            width: 430,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (image != null)
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Image.memory(
+                      image.pngBytes,
+                      width: 210,
+                      height: 210,
+                      filterQuality: FilterQuality.none,
+                    ),
+                  )
+                else
+                  Container(
+                    width: 210,
+                    height: 210,
+                    decoration: BoxDecoration(
+                      color: KiraColors.surface2,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.wifi_off,
+                          size: 48, color: KiraColors.muted),
+                    ),
                   ),
-                  child: QrImageView(
-                    data: uri.toString(),
-                    version: QrVersions.auto,
-                    size: 210,
-                    backgroundColor: Colors.white,
-                  ),
-                )
-              else
-                Container(
-                  width: 210,
-                  height: 210,
-                  decoration: BoxDecoration(
-                    color: KiraColors.surface2,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Center(
-                    child:
-                        Icon(Icons.wifi_off, size: 48, color: KiraColors.muted),
+                const SizedBox(height: 18),
+                Text(
+                  uri?.toString() ?? '未检测到局域网 — 请检查网络设置',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: KiraColors.amber,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-              const SizedBox(height: 18),
-              Text(
-                uri?.toString() ?? '未检测到局域网 — 请检查网络设置',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: KiraColors.amber,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 10),
+                const Text(
+                  '手机连接同一 WiFi / 局域网后扫码即可点歌',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: KiraColors.muted,
+                    height: 1.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                '手机连接同一 WiFi / 局域网后扫码即可点歌',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: KiraColors.muted,
-                  height: 1.5,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 

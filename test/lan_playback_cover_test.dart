@@ -31,6 +31,8 @@ Future<({LanServer server, PlaybackService playback})> _start(
   Directory directory,
   Song song, {
   PlaybackAssetCache? assetCache,
+  InternetAddress? bindAddress,
+  Future<String?> Function()? addressResolver,
 }) async {
   final db = LocalDatabase(dbPath: ':memory:')..open();
   addTearDown(db.close);
@@ -48,10 +50,12 @@ Future<({LanServer server, PlaybackService playback})> _start(
     playbackService: playback,
     bilibiliAccountService: account,
     assetCache: assetCache,
-    bindAddress: InternetAddress.loopbackIPv4,
+    bindAddress: bindAddress ?? InternetAddress.loopbackIPv4,
+    addressResolver: addressResolver,
   );
   await server.start(port: 0);
   addTearDown(server.stop);
+  addTearDown(server.qrImages.dispose);
   return (server: server, playback: playback);
 }
 
@@ -64,6 +68,36 @@ void main() {
   setUp(() async {
     directory = await Directory.systemTemp.createTemp('kirakara_lan_cover_');
     addTearDown(() => directory.delete(recursive: true));
+  });
+
+  test('LAN events refresh one shared QR without restarting the server',
+      () async {
+    String? address = '192.168.1.2';
+    final running = await _start(directory, _song(),
+        bindAddress: InternetAddress.anyIPv4,
+        addressResolver: () async => address);
+    final server = running.server;
+    final firstUri = server.localUri!;
+    await server.qrImages.updateEndpoint(firstUri);
+    final first = server.qrImages.image!;
+    await server.refreshAddress();
+    expect(identical(server.qrImages.image, first), isTrue);
+    address = '192.168.2.4';
+    await server.refreshAddress();
+    await server.qrImages.updateEndpoint(server.localUri);
+    expect(server.localUri!.port, firstUri.port);
+    expect(server.qrImages.image!.endpoint.host, address);
+    expect(server.qrImages.image!.revision, greaterThan(first.revision));
+    address = null;
+    await server.refreshAddress();
+    expect(server.localUri, isNull);
+    expect(server.qrImages.image, isNull);
+    expect(server.isRunning, isTrue);
+    await server.stop();
+    address = '192.168.1.2';
+    await server.start(port: 0);
+    await server.qrImages.updateEndpoint(server.localUri);
+    expect(server.qrImages.image!.endpoint, server.localUri);
   });
 
   test(
