@@ -24,7 +24,8 @@ foreach ($spec in @(
   @('GNU LGPL supplement','GPL-3.0','GPL-3.0-LGPL-supplement.txt'),
   @('Kirakara Show','MIT','Show-MIT.txt'),
   @('Signalsmith Stretch','MIT','Signalsmith-Stretch-MIT.txt'),
-  @('Signalsmith Linear','MIT','Signalsmith-Linear-MIT.txt'))) {
+  @('Signalsmith Linear','MIT','Signalsmith-Linear-MIT.txt'),
+  @('Lucide icons','ISC / MIT (Feather)','Lucide-ISC-MIT.txt'))) {
   AddNotice $spec[0] $spec[1] @((Join-Path $root ('third_party/licenses/'+$spec[2])))
 }
 if (-not [string]::IsNullOrWhiteSpace($EngineLicenseDirectory)) {

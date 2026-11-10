@@ -17,6 +17,9 @@ try {
     if ($name -match '^[^/]+\.zip$' -or $name.StartsWith('Kirakara-App/', [StringComparison]::OrdinalIgnoreCase)) {
       throw "Portable ZIP must not wrap the application in another archive or directory: $name"
     }
+    if ($name -match '(^|/)Show-LICENSES\.txt$') {
+      throw "Show license texts belong in the App license catalog, not a loose file: $name"
+    }
   }
   Write-Host "Portable ZIP layout verified: executable at root, $($archive.Entries.Count) entries."
 } finally { $archive.Dispose() }

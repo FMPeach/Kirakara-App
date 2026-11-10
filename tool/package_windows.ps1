@@ -33,7 +33,7 @@ try {
     $full = [IO.Path]::GetFullPath($entry)
     if (-not $full.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)) { continue }
     $relative = $full.Substring($prefix.Length)
-    if ($relative -match '(^|[\\/])(settings|logs)([\\/]|$)' -or [IO.Path]::GetExtension($relative) -in '.pdb','.log','.dmp','.etl') { continue }
+    if ($relative -ieq 'Show-LICENSES.txt' -or $relative -match '(^|[\\/])(settings|logs)([\\/]|$)' -or [IO.Path]::GetExtension($relative) -in '.pdb','.log','.dmp','.etl') { continue }
     if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { throw "Missing installed file: $relative" }
     $null = $files.Add($full)
   }

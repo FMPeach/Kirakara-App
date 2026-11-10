@@ -9,6 +9,9 @@ $cases = @(
   @{ entries=@('kirakara_app.exe','flutter_windows.dll','data/app.so','tools/ChunKHelper/ChunK Helper.exe'); accepted=$true },
   # Corresponding-source archives deep inside runtime data are not App wrappers.
   @{ entries=@('kirakara_app.exe','ime/sources/library.zip'); accepted=$true },
+  @{ entries=@('kirakara_app.exe','Show-LICENSES.txt'); accepted=$false },
+  @{ entries=@('kirakara_app.exe','show-licenses.TXT'); accepted=$false },
+  @{ entries=@('kirakara_app.exe','data/Show-LICENSES.txt'); accepted=$false },
   @{ entries=@('Kirakara-App/kirakara_app.exe'); accepted=$false },
   @{ entries=@('build/releases/Kirakara.zip'); accepted=$false },
   @{ entries=@('kirakara_app.exe','Kirakara.zip'); accepted=$false },

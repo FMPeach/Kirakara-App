@@ -140,13 +140,9 @@ install(FILES "${KIRAKARA_SHOW_HOST_DLL}"
   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
-# New Show builds provide a license sidecar next to the selected DLL.
-if(EXISTS "${KIRAKARA_SHOW_HOST_DLL}.LICENSES.txt")
-  install(FILES "${KIRAKARA_SHOW_HOST_DLL}.LICENSES.txt"
-    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-    RENAME "Show-LICENSES.txt"
-    COMPONENT Runtime)
-endif()
+# License texts are bundled in the in-app catalog. Remove the old loose copy.
+install(CODE "file(REMOVE \"${INSTALL_BUNDLE_LIB_DIR}/Show-LICENSES.txt\")"
+  COMPONENT Runtime)
 
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/branding/idle-background.png"
   DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"

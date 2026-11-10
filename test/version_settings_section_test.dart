@@ -133,6 +133,21 @@ void main() {
     final entries = await loadThirdPartyLicenses();
     expect(entries.any((entry) => entry.name == 'Kirakara Show'), isTrue);
     expect(entries.any((entry) => entry.name == 'Flutter Engine'), isTrue);
+    for (final name in [
+      'Kirakara Show',
+      'Signalsmith Stretch',
+      'Signalsmith Linear',
+      'Lucide icons',
+    ]) {
+      expect(entries.where((entry) => entry.name == name), hasLength(1));
+    }
+    final lucide = entries.singleWhere((entry) => entry.name == 'Lucide icons');
+    expect(lucide.license, 'ISC / MIT (Feather)');
+    final lucideText = lucide.texts.join('\n');
+    expect(lucideText, contains('ISC License'));
+    expect(lucideText, contains('Lucide Icons and Contributors'));
+    expect(lucideText, contains('The MIT License (MIT)'));
+    expect(lucideText, contains('Cole Bemis'));
     expect(
         entries.every(
             (entry) => entry.texts.every((text) => text.trim().isNotEmpty)),
