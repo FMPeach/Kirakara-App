@@ -1,5 +1,6 @@
 #include "window_bridge.h"
 #include "package_info.h"
+#include "lan_network_info.h"
 
 #include <flutter/encodable_value.h>
 #include <flutter/method_channel.h>
@@ -263,6 +264,18 @@ void RegisterWindowBridge(flutter::BinaryMessenger* messenger, HWND flutter_view
         }
         if (call.method_name() == "getDisplays") {
           result->Success(EncodableValue(EnumerateDisplays()));
+          return;
+        }
+        if (call.method_name() == "getLanNetworkInfo") {
+          const auto* address = call.arguments() ? std::get_if<std::string>(call.arguments()) : nullptr;
+          const auto network = address ? ReadLanNetworkInfo(*address) : std::nullopt;
+          if (network) {
+            result->Success(EncodableValue(EncodableMap{
+                {EncodableValue("name"), EncodableValue(network->name)},
+                {EncodableValue("wifi"), EncodableValue(network->wifi)}}));
+          } else {
+            result->Success();
+          }
           return;
         }
         if (call.method_name() == "isControllerFullscreen") {

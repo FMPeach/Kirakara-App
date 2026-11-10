@@ -11,7 +11,8 @@ abstract interface class AudienceHudSink {
   set onLanChanged(void Function()? callback);
   bool setImage(PhoneOrderQrImage? image);
   bool setState(AudienceOverlayOptions options, String network,
-      List<AudienceQueueEntry> queue);
+      List<AudienceQueueEntry> queue,
+      {bool wifi = false, AudienceQueueEntry? current});
 }
 
 final class _QueueItem extends Struct {
@@ -32,6 +33,8 @@ final class _HudState extends Struct {
   external int revision;
   external Pointer<Utf16> network;
   external Pointer<_QueueItem> queue;
+  external Pointer<Utf16> currentTitle;
+  external Pointer<Utf16> currentArtist;
 }
 
 final class _QrImage extends Struct {
@@ -101,7 +104,10 @@ class AudienceHudFFI implements AudienceHudSink {
     }
     _listener ??= NativeCallable<_LanCallback>.listener(
         (Pointer<Void> context, int revision, bool available) {
-      if (!_disposed) _onLanChanged?.call();
+      if (!_disposed) {
+        _lastImage = null;
+        _onLanChanged?.call();
+      }
     });
     _callback!(_host, _listener!.nativeFunction, nullptr);
   }
@@ -139,7 +145,8 @@ class AudienceHudFFI implements AudienceHudSink {
 
   @override
   bool setState(AudienceOverlayOptions options, String network,
-      List<AudienceQueueEntry> queue) {
+      List<AudienceQueueEntry> queue,
+      {bool wifi = false, AudienceQueueEntry? current}) {
     if (_disposed || _state == null) return false;
     final input = calloc<_HudState>();
     final count = queue.length.clamp(0, 4);
@@ -168,11 +175,14 @@ class AudienceHudFFI implements AudienceHudSink {
         ..abi = 1
         ..flags = (options.qrEnabled ? 1 : 0) |
             (options.queueEnabled ? 2 : 0) |
-            (options.announcementEnabled ? 4 : 0)
+            (options.announcementEnabled ? 4 : 0) |
+            (wifi ? 8 : 0)
         ..count = count
         ..revision = ++_revision
         ..network = text(network)
-        ..queue = entries;
+        ..queue = entries
+        ..currentTitle = text(current?.title ?? '')
+        ..currentArtist = text(current?.artist ?? '');
       return _state!(_host, input);
     } finally {
       for (final pointer in strings) {

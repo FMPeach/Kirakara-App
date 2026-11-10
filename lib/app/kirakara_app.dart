@@ -16,6 +16,7 @@ import '../services/cast_service.dart';
 import '../services/display_manager.dart';
 import '../services/kirakara_show_service.dart';
 import '../services/lan_server.dart';
+import '../services/lan_network_info.dart';
 import '../services/playback_asset_cache.dart';
 import '../services/playback_service.dart';
 import '../services/playback_slot_manager.dart';
@@ -125,10 +126,12 @@ class _KirakaraAppState extends State<KirakaraApp> {
       bilibiliAccountService: bilibiliAccountService,
       assetCache: _assetCache,
       bindAddress: widget.lanServerBindAddress,
+      networkInfoResolver: LanNetworkInfo.read,
     );
     stageRenderer = KirakaraStageRenderer(showService: kirakaraShowService);
     _audienceOverlay = AudienceOverlayService(
         queue: queueService,
+        playback: playbackService,
         settings: settingsService,
         lan: lanServer,
         sink: kirakaraShowService.audienceHud);

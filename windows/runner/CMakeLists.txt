@@ -33,6 +33,7 @@ add_executable(${BINARY_NAME} WIN32
   "dlna_discovery_bridge.cpp"
   "dlna_network_route.cpp"
   "flutter_window.cpp"
+  "lan_network_info.cpp"
   "ime_bridge.cpp"
   "main.cpp"
   "media_io_bridge.cpp"
@@ -70,6 +71,7 @@ target_link_libraries(${BINARY_NAME} PRIVATE "advapi32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "ole32.lib" "oleaut32.lib" "uuid.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "winhttp.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "iphlpapi.lib" "ws2_32.lib")
+target_link_libraries(${BINARY_NAME} PRIVATE "windowsapp.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE "wtsapi32.lib")
 target_link_libraries(${BINARY_NAME} PRIVATE kirakara_zinnia)
 target_include_directories(${BINARY_NAME} PRIVATE

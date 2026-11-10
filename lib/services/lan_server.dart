@@ -10,6 +10,7 @@ import '../domain/song.dart';
 import 'bilibili_account_service.dart';
 import 'bilibili_resolver.dart';
 import 'lan_address_resolver.dart';
+import 'lan_network_info.dart';
 import 'playback_service.dart';
 import 'playback_asset_cache.dart';
 import 'phone_order_qr_service.dart';
@@ -26,6 +27,7 @@ class LanServer {
     InternetAddress? bindAddress,
     Future<String?> Function()? addressResolver,
     PhoneOrderQrService? qrImages,
+    Future<LanNetworkInfo?> Function(String)? networkInfoResolver,
   })  : _queueService = queueService,
         _searchService = searchService,
         _playbackService = playbackService,
@@ -33,6 +35,7 @@ class LanServer {
         _assetCache = assetCache,
         _bindAddress = bindAddress ?? InternetAddress.anyIPv4,
         _addressResolver = addressResolver ?? LanAddressResolver.detectIpv4,
+        _networkInfoResolver = networkInfoResolver,
         qrImages = qrImages ?? PhoneOrderQrService();
 
   final QueueService _queueService;
@@ -46,6 +49,10 @@ class LanServer {
   String? _lanIp;
   final Future<String?> Function() _addressResolver;
   final PhoneOrderQrService qrImages;
+  final Future<LanNetworkInfo?> Function(String)? _networkInfoResolver;
+  LanNetworkInfo? _networkInfo;
+  String get networkName => _networkInfo?.name ?? '局域网连接';
+  bool get networkIsWifi => _networkInfo?.wifi ?? false;
   int _addressRevision = 0;
 
   bool get isRunning => _server != null;
@@ -69,8 +76,11 @@ class LanServer {
     final address = _bindAddress.address == InternetAddress.anyIPv4.address
         ? await _addressResolver()
         : _bindAddress.address;
+    final network =
+        address == null ? null : await _networkInfoResolver?.call(address);
     if (_server != server || revision != _addressRevision) return;
     _lanIp = address;
+    _networkInfo = network;
     unawaited(qrImages.updateEndpoint(localUri));
   }
 
@@ -79,6 +89,7 @@ class LanServer {
     final server = _server;
     _server = null;
     _lanIp = null;
+    _networkInfo = null;
     unawaited(qrImages.updateEndpoint(null));
     _coverClient?.close(force: true);
     _coverClient = null;

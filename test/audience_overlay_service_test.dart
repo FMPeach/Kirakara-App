@@ -22,6 +22,7 @@ class _Sink implements AudienceHudSink {
   int states = 0;
   PhoneOrderQrImage? image;
   List<AudienceQueueEntry> queue = [];
+  AudienceQueueEntry? current;
   AudienceOverlayOptions? options;
   @override
   bool setImage(PhoneOrderQrImage? value) {
@@ -31,17 +32,18 @@ class _Sink implements AudienceHudSink {
 
   @override
   bool setState(AudienceOverlayOptions value, String network,
-      List<AudienceQueueEntry> entries) {
+      List<AudienceQueueEntry> entries,
+      {bool wifi = false, AudienceQueueEntry? current}) {
     states++;
     options = value;
     queue = List.of(entries);
+    this.current = current;
     return true;
   }
 }
 
 void main() {
-  test(
-      'HUD publishes upcoming four on events without coupling playback or QR generation',
+  test('HUD publishes current plus four upcoming only on content events',
       () async {
     final dir = Directory.systemTemp.createTempSync('kirakara_hud_sync_');
     addTearDown(() => dir.deleteSync(recursive: true));
@@ -77,7 +79,11 @@ void main() {
     addTearDown(settings.dispose);
     final sink = _Sink();
     final service = AudienceOverlayService(
-        settings: settings, lan: lan, sink: sink, queue: queue);
+        settings: settings,
+        lan: lan,
+        sink: sink,
+        queue: queue,
+        playback: playback);
     for (var i = 1; i <= 5; i++) {
       queue.addSong(
           Song(id: '$i', title: 'Song $i', category: '', assets: const []));
@@ -90,6 +96,19 @@ void main() {
     expect(sink.states, count);
     final next = queue.takeNext()!;
     expect(sink.queue.first.title, 'Song 2');
+    playback.setCurrent(next);
+    expect(sink.current, (title: 'Song 1', artist: ''));
+    expect(sink.queue.map((entry) => entry.title),
+        ['Song 2', 'Song 3', 'Song 4', 'Song 5']);
+    final afterCurrent = sink.states;
+    for (var i = 0; i < 100; i++) {
+      playback.syncEnginePosition(Duration(seconds: i));
+      playback.setVolume(i);
+    }
+    playback.pause();
+    playback.play();
+    playback.replay();
+    expect(sink.states, afterCurrent);
     queue.markFailed(queue.items.first.id, 'test');
     expect(sink.queue.first.title, 'Song 3');
     await images.updateEndpoint(Uri.parse('http://192.168.1.2:7391'));
@@ -99,7 +118,7 @@ void main() {
     expect(sink.options!.qrEnabled, isFalse);
     expect(sink.options!.queueEnabled, isTrue);
     expect(lan.isRunning, isFalse);
-    expect(playback.state.currentItem, isNull);
+    expect(identical(playback.state.currentItem, next), isTrue);
     expect(generations, 1);
     final beforeDispose = sink.states;
     service.dispose();

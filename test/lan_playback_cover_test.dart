@@ -8,6 +8,7 @@ import 'package:kirakara_app/domain/media_asset.dart';
 import 'package:kirakara_app/domain/song.dart';
 import 'package:kirakara_app/services/bilibili_account_service.dart';
 import 'package:kirakara_app/services/lan_server.dart';
+import 'package:kirakara_app/services/lan_network_info.dart';
 import 'package:kirakara_app/services/playback_asset_cache.dart';
 import 'package:kirakara_app/services/playback_service.dart';
 import 'package:kirakara_app/services/queue_service.dart';
@@ -33,6 +34,7 @@ Future<({LanServer server, PlaybackService playback})> _start(
   PlaybackAssetCache? assetCache,
   InternetAddress? bindAddress,
   Future<String?> Function()? addressResolver,
+  Future<LanNetworkInfo?> Function(String)? networkInfoResolver,
 }) async {
   final db = LocalDatabase(dbPath: ':memory:')..open();
   addTearDown(db.close);
@@ -52,6 +54,7 @@ Future<({LanServer server, PlaybackService playback})> _start(
     assetCache: assetCache,
     bindAddress: bindAddress ?? InternetAddress.loopbackIPv4,
     addressResolver: addressResolver,
+    networkInfoResolver: networkInfoResolver ?? (_) async => null,
   );
   await server.start(port: 0);
   addTearDown(server.stop);
@@ -73,20 +76,27 @@ void main() {
   test('LAN events refresh one shared QR without restarting the server',
       () async {
     String? address = '192.168.1.2';
+    var network = const LanNetworkInfo(name: 'GZST', wifi: false);
     final running = await _start(directory, _song(),
         bindAddress: InternetAddress.anyIPv4,
-        addressResolver: () async => address);
+        addressResolver: () async => address,
+        networkInfoResolver: (_) async => network);
     final server = running.server;
     final firstUri = server.localUri!;
     await server.qrImages.updateEndpoint(firstUri);
     final first = server.qrImages.image!;
+    expect(server.networkName, 'GZST');
+    expect(server.networkIsWifi, isFalse);
     await server.refreshAddress();
     expect(identical(server.qrImages.image, first), isTrue);
     address = '192.168.2.4';
+    network = const LanNetworkInfo(name: '家庭 Wi-Fi', wifi: true);
     await server.refreshAddress();
     await server.qrImages.updateEndpoint(server.localUri);
     expect(server.localUri!.port, firstUri.port);
     expect(server.qrImages.image!.endpoint.host, address);
+    expect(server.networkName, '家庭 Wi-Fi');
+    expect(server.networkIsWifi, isTrue);
     expect(server.qrImages.image!.revision, greaterThan(first.revision));
     address = null;
     await server.refreshAddress();

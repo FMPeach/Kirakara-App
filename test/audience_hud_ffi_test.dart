@@ -16,8 +16,9 @@ void main() {
     await qr.updateEndpoint(Uri.parse('http://192.168.1.2:7391'));
     expect(host.audienceHud.setImage(qr.image), isTrue);
     expect(
-        host.audienceHud.setState(const AudienceOverlayOptions(),
-            qr.endpoint!.authority, [(title: '测试曲目', artist: '歌手')]),
+        host.audienceHud.setState(const AudienceOverlayOptions(), '测试 Wi-Fi',
+            [(title: '测试曲目', artist: '歌手')],
+            wifi: true, current: (title: '当前歌曲', artist: '当前歌手')),
         isTrue);
     host.audienceHud.onLanChanged = () {};
     host.audienceHud.onLanChanged = null;
