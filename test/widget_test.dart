@@ -79,6 +79,7 @@ void main() {
     expect(find.text('双屏异显'), findsOneWidget);
     expect(find.text('无线投屏'), findsOneWidget);
     expect(find.text('深度搜索（慎用）'), findsNothing);
+    final outputSwitch = tester.widget<Switch>(find.byType(Switch).first);
     await tester.tap(find.byIcon(Icons.close).last);
     await tester.pump();
 
@@ -92,6 +93,24 @@ void main() {
     expect(find.text('显示二维码点歌'), findsOneWidget);
     expect(find.text('歌曲结束前显示播放列表'), findsOneWidget);
     expect(find.text('显示滚动报幕'), findsNothing);
+    final hudSwitches = find.descendant(
+        of: find.byType(SwitchListTile), matching: find.byType(Switch));
+    expect(hudSwitches, findsNWidgets(2));
+    for (final toggle in tester.widgetList<Switch>(hudSwitches)) {
+      expect(toggle.activeThumbColor, outputSwitch.activeThumbColor);
+      expect(toggle.activeTrackColor, outputSwitch.activeTrackColor);
+      expect(toggle.inactiveThumbColor, outputSwitch.inactiveThumbColor);
+      expect(toggle.inactiveTrackColor, outputSwitch.inactiveTrackColor);
+      for (final states in <Set<WidgetState>>[
+        {},
+        {WidgetState.selected},
+        {WidgetState.disabled},
+        {WidgetState.disabled, WidgetState.selected}
+      ]) {
+        expect(toggle.trackOutlineColor!.resolve(states),
+            outputSwitch.trackOutlineColor!.resolve(states));
+      }
+    }
   });
 
   testWidgets('browse pages render inside the controller shell',
