@@ -66,6 +66,7 @@ class KirakaraShowService extends ChangeNotifier {
     _started = true;
     try {
       _ffi = KirakaraShowFFI();
+      _ffi!.setIdleBackgroundImage(KirakaraShowFFI.idleBackgroundImagePath());
     } catch (e) {
       debugPrint('KirakaraShowService: failed to load engine DLL: $e');
       return;

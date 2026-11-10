@@ -100,6 +100,10 @@ typedef GetHeightNative = Uint32 Function(ShowHostHandle);
 typedef StartCastStreamNative = Bool Function(ShowHostHandle, Uint16);
 typedef GetCastStreamPortNative = Uint16 Function(ShowHostHandle);
 typedef StopCastStreamNative = Void Function(ShowHostHandle);
+typedef SetIdleBackgroundImageNative = Bool Function(
+  ShowHostHandle,
+  Pointer<Utf16>,
+);
 typedef SetStageOverlayStateNative = Bool Function(
   ShowHostHandle,
   Pointer<ShowHostStageOverlayStateNative>,
@@ -167,6 +171,10 @@ typedef _GetHeight = int Function(ShowHostHandle);
 typedef _StartCastStream = bool Function(ShowHostHandle, int);
 typedef _GetCastStreamPort = int Function(ShowHostHandle);
 typedef _StopCastStream = void Function(ShowHostHandle);
+typedef _SetIdleBackgroundImage = bool Function(
+  ShowHostHandle,
+  Pointer<Utf16>,
+);
 typedef _SetStageOverlayState = bool Function(
   ShowHostHandle,
   Pointer<ShowHostStageOverlayStateNative>,
@@ -289,6 +297,7 @@ class KirakaraShowFFI {
   _GetCastStreamPort? _getCastStreamPort;
   _StopCastStream? _stopCastStream;
   _SetStageOverlayState? _setStageOverlayState;
+  _SetIdleBackgroundImage? _setIdleBackgroundImage;
 
   int _width = 0;
   int _height = 0;
@@ -393,6 +402,15 @@ class KirakaraShowFFI {
           _SetStageOverlayState>('show_host_set_stage_overlay_state');
     } on ArgumentError {
       _setStageOverlayState = null;
+    }
+
+    try {
+      _setIdleBackgroundImage = _dylib.lookupFunction<
+          SetIdleBackgroundImageNative, _SetIdleBackgroundImage>(
+        'show_host_set_idle_background_image',
+      );
+    } on ArgumentError {
+      _setIdleBackgroundImage = null;
     }
 
     _handle = _create();
@@ -541,6 +559,27 @@ class KirakaraShowFFI {
       _startCastStream?.call(_handle, port) ?? false;
   int get castStreamPort => _getCastStreamPort?.call(_handle) ?? 0;
   void stopCastStream() => _stopCastStream?.call(_handle);
+
+  /// The App packages the still separately from Show's DLL.
+  static String idleBackgroundImagePath({String? executablePath}) =>
+      File(executablePath ?? Platform.resolvedExecutable)
+          .parent
+          .uri
+          .resolve('data/idle-background.png')
+          .toFilePath();
+
+  /// Empty/null restores the plain background. Older Show builds keep their
+  /// existing idle screen when this optional entry point is unavailable.
+  bool setIdleBackgroundImage(String? path) {
+    final setter = _setIdleBackgroundImage;
+    if (_disposed || setter == null) return false;
+    final nativePath = (path ?? '').toNativeUtf16();
+    try {
+      return setter(_handle, nativePath);
+    } finally {
+      calloc.free(nativePath);
+    }
+  }
 
   bool setStageOverlayState(StageOverlayState state) {
     final setter = _setStageOverlayState;

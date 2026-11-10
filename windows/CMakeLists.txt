@@ -140,6 +140,10 @@ install(FILES "${KIRAKARA_SHOW_HOST_DLL}"
   DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
   COMPONENT Runtime)
 
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../assets/branding/idle-background.png"
+  DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
+  COMPONENT Runtime)
+
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/chunk_helper.cmake")
 
 # Copy the native assets provided by the build.dart from all packages.
