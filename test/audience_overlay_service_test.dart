@@ -109,6 +109,13 @@ void main() {
     playback.play();
     playback.replay();
     expect(sink.states, afterCurrent);
+    for (var i = 0; i < 100; i++) {
+      // Download completion/availability can notify both services without
+      // changing any row displayed by the audience HUD.
+      queue.retry(queue.items.first.id);
+      playback.refreshUpNext();
+    }
+    expect(sink.states, afterCurrent);
     queue.markFailed(queue.items.first.id, 'test');
     expect(sink.queue.first.title, 'Song 3');
     await images.updateEndpoint(Uri.parse('http://192.168.1.2:7391'));
