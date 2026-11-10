@@ -9,6 +9,7 @@ import '../domain/queue_item.dart';
 import '../domain/song.dart';
 import '../domain/stage_overlay_state.dart';
 import 'kirakara_show_ffi.dart';
+import 'audience_hud_ffi.dart';
 import 'playback_asset_cache.dart';
 import 'playback_service.dart';
 import 'playback_slot.dart';
@@ -59,6 +60,7 @@ class KirakaraShowService extends ChangeNotifier {
   bool get isBuffering => _isBuffering;
   bool get isLoading => _isShowLoading;
   int get nativeHandleAddress => _ffi?.nativeHandleAddress ?? 0;
+  AudienceHudSink? get audienceHud => _ffi?.audienceHud;
 
   /// Call this once after the engine DLL is available.
   void start() {

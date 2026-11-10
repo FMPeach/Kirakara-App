@@ -11,6 +11,7 @@ import '../data/local_db/local_database.dart';
 import '../engine/kirakara_stage_renderer.dart';
 import '../engine/stage_renderer.dart';
 import '../services/bilibili_account_service.dart';
+import '../services/audience_overlay_service.dart';
 import '../services/cast_service.dart';
 import '../services/display_manager.dart';
 import '../services/kirakara_show_service.dart';
@@ -52,6 +53,7 @@ class _KirakaraAppState extends State<KirakaraApp> {
   late final DisplayManager displayManager;
   late final CastService castService;
   late final LanServer lanServer;
+  late final AudienceOverlayService _audienceOverlay;
   late final PlaybackAssetCache _assetCache;
   late final PlaybackSlotManager _slotManager;
   late final SettingsService settingsService;
@@ -125,6 +127,10 @@ class _KirakaraAppState extends State<KirakaraApp> {
       bindAddress: widget.lanServerBindAddress,
     );
     stageRenderer = KirakaraStageRenderer(showService: kirakaraShowService);
+    _audienceOverlay = AudienceOverlayService(
+        settings: settingsService,
+        lan: lanServer,
+        sink: kirakaraShowService.audienceHud);
     // 热插拔：插入第二屏后自动开双屏
     displayManager.onStageDisplayAttached = _onStageDisplayHotPlugged;
     unawaited(_initializeDisplayOutput());
@@ -193,6 +199,7 @@ class _KirakaraAppState extends State<KirakaraApp> {
 
   @override
   void dispose() {
+    _audienceOverlay.dispose();
     castService.dispose();
     unawaited(kirakaraShowService.dispose());
     playbackService.disposeService();

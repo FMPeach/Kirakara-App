@@ -5,6 +5,7 @@ import 'dart:isolate';
 import 'package:ffi/ffi.dart';
 
 import '../domain/stage_overlay_state.dart';
+import 'audience_hud_ffi.dart';
 
 final class ShowHostStageOverlayAssetNative extends Struct {
   @Uint32()
@@ -269,6 +270,7 @@ class KirakaraShowFFI {
   final String _dllPath;
   final DynamicLibrary _dylib;
   late final ShowHostHandle _handle;
+  late final AudienceHudFFI audienceHud;
 
   late final _Create _create;
   late final _Destroy _destroy;
@@ -414,6 +416,7 @@ class KirakaraShowFFI {
     }
 
     _handle = _create();
+    audienceHud = AudienceHudFFI(_dylib, _handle);
   }
 
   bool load(
@@ -632,6 +635,7 @@ class KirakaraShowFFI {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    audienceHud.dispose();
     _destroy(_handle);
     _dylib.close();
   }
