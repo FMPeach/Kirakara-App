@@ -128,6 +128,7 @@ class _KirakaraAppState extends State<KirakaraApp> {
     );
     stageRenderer = KirakaraStageRenderer(showService: kirakaraShowService);
     _audienceOverlay = AudienceOverlayService(
+        queue: queueService,
         settings: settingsService,
         lan: lanServer,
         sink: kirakaraShowService.audienceHud);
