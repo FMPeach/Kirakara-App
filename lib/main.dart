@@ -15,16 +15,40 @@ Future<void> main() async {
   try {
     Directory(settingsDir).createSync(recursive: true);
   } on FileSystemException {
-    // exe 目录只读时回退到临时目录，保证可运行
+    // 缓存路径在下方独立选择，不依赖这里能否写入。
   }
   final settingsFilePath = p.join(settingsDir, 'settings.json');
-  final defaultCacheDirectory = Platform.isWindows
-      ? r'D:\Kirakara_Cache'
-      : p.join((await getTemporaryDirectory()).path, 'Kirakara_Cache');
-  final cacheDirectory = await SettingsService.resolveCacheDirectory(
-    defaultCacheDirectory,
-    settingsFilePath,
-  );
+  final localAppData = Platform.environment['LOCALAPPDATA']?.trim();
+  final cacheDirectories = Platform.isWindows
+      ? [
+          r'D:\Kirakara_Cache',
+          r'C:\Kirakara_Cache',
+          p.join(exeDir, 'Kirakara_Cache'),
+          p.join(
+            localAppData == null || localAppData.isEmpty
+                ? Directory.systemTemp.path
+                : p.join(localAppData, 'Temp'),
+            'Kirakara_Cache',
+          ),
+        ]
+      : [p.join((await getTemporaryDirectory()).path, 'Kirakara_Cache')];
+  final String cacheDirectory;
+  try {
+    cacheDirectory = await SettingsService.resolveCacheDirectory(
+      settingsFilePath: settingsFilePath,
+      defaultPaths: cacheDirectories,
+    );
+  } on FileSystemException catch (error) {
+    debugPrint('Kirakara: unable to create a cache directory: $error');
+    runApp(const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('无法创建缓存目录，请检查磁盘空间和目录权限。'),
+        ),
+      ),
+    ));
+    return;
+  }
   final smokeLanLoopback = Platform.isWindows &&
       Platform.environment['KIRAKARA_SMOKE_LAN_LOOPBACK'] == '1';
   runApp(

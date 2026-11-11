@@ -23,6 +23,7 @@ class SettingsService extends ChangeNotifier {
   String _customAnnouncement = '';
   int _prefetchLookahead = 3;
   String _cacheDirectoryPath;
+  String? _cacheDirectoryPreference;
   AudienceOverlayOptions _audienceOverlay = const AudienceOverlayOptions();
 
   String get customAnnouncement => _customAnnouncement;
@@ -41,7 +42,8 @@ class SettingsService extends ChangeNotifier {
         const JsonEncoder.withIndent('  ').convert(<String, Object?>{
           _customAnnouncementKey: _customAnnouncement,
           _prefetchLookaheadKey: _prefetchLookahead,
-          _cacheDirectoryKey: _cacheDirectoryPath,
+          if (_cacheDirectoryPreference != null)
+            _cacheDirectoryKey: _cacheDirectoryPreference,
           'audience_overlay': {
             'qr_enabled': _audienceOverlay.qrEnabled,
             'queue_enabled': _audienceOverlay.queueEnabled,
@@ -55,46 +57,48 @@ class SettingsService extends ChangeNotifier {
     }
   }
 
-  Map<String, Object?>? _read() {
+  static Map<String, Object?>? _readSettings(String path) {
     try {
-      if (!_settingsFile.existsSync()) return null;
-      final decoded = jsonDecode(_settingsFile.readAsStringSync());
+      final file = File(path);
+      if (!file.existsSync()) return null;
+      final decoded = jsonDecode(file.readAsStringSync());
       return decoded is Map<String, Object?> ? decoded : null;
     } on Exception {
       return null;
     }
   }
 
-  /// 解析缓存目录：优先 settings.json 中的用户选择，其次默认路径。
-  static Future<String> resolveCacheDirectory(
-      String defaultPath, String settingsFilePath) async {
-    var saved = '';
-    try {
-      final file = File(settingsFilePath);
-      if (file.existsSync()) {
-        final decoded = jsonDecode(file.readAsStringSync());
-        if (decoded is Map) {
-          final value = decoded[_cacheDirectoryKey];
-          if (value is String) saved = value.trim();
-        }
+  static String? _cachePreference(Map<String, Object?>? stored) {
+    final value = stored?[_cacheDirectoryKey];
+    if (value is! String) return null;
+    final path = value.trim();
+    return path.isEmpty ? null : path;
+  }
+
+  /// 先试用户选择的目录，再按顺序尝试默认目录。
+  static Future<String> resolveCacheDirectory({
+    required String settingsFilePath,
+    required Iterable<String> defaultPaths,
+  }) async {
+    final saved = _cachePreference(_readSettings(settingsFilePath));
+    FileSystemException? lastError;
+    for (final path in <String>{if (saved != null) saved, ...defaultPaths}) {
+      try {
+        final directory = Directory(path).absolute;
+        await directory.create(recursive: true);
+        // 播放缓存需要在这里创建会话子目录，目录存在不等于有写权限。
+        final probe = await directory.createTemp('.kirakara-write-check-');
+        await probe.delete();
+        return directory.path;
+      } on FileSystemException catch (error) {
+        lastError = error;
       }
-    } on Exception {
-      saved = '';
     }
-    final selected = saved.isEmpty ? defaultPath : saved;
-    try {
-      final directory = Directory(selected).absolute;
-      directory.createSync(recursive: true);
-      return directory.path;
-    } on FileSystemException {
-      final fallback = Directory(defaultPath).absolute;
-      fallback.createSync(recursive: true);
-      return fallback.path;
-    }
+    throw lastError ?? const FileSystemException('No usable cache directory');
   }
 
   Future<void> load() async {
-    final stored = _read() ?? <String, Object?>{};
+    final stored = _readSettings(_settingsFilePath) ?? <String, Object?>{};
     final overlay = stored['audience_overlay'];
     if (overlay is Map) {
       _audienceOverlay = AudienceOverlayOptions(
@@ -114,11 +118,8 @@ class SettingsService extends ChangeNotifier {
     _prefetchLookahead = ((stored[_prefetchLookaheadKey] as num?)?.toInt() ?? 3)
         .clamp(1, 3)
         .toInt();
-    final cacheDirectory =
-        (stored[_cacheDirectoryKey] as String?)?.trim() ?? '';
-    if (cacheDirectory.isNotEmpty) {
-      _cacheDirectoryPath = cacheDirectory;
-    }
+    // 启动时已选好可用目录；保留偏好供下次启动，不覆盖本次回退结果。
+    _cacheDirectoryPreference = _cachePreference(stored);
     if (!_disposed) notifyListeners();
   }
 
@@ -147,7 +148,12 @@ class SettingsService extends ChangeNotifier {
 
   Future<void> setCacheDirectoryPath(String value) async {
     final normalized = value.trim();
-    if (normalized.isEmpty || _cacheDirectoryPath == normalized) return;
+    if (normalized.isEmpty ||
+        (_cacheDirectoryPreference == normalized &&
+            _cacheDirectoryPath == normalized)) {
+      return;
+    }
+    _cacheDirectoryPreference = normalized;
     _cacheDirectoryPath = normalized;
     if (!_disposed) notifyListeners();
     _write();
