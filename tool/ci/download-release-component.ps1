@@ -37,18 +37,41 @@ $headers = @{
 }
 $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
 if (-not $curl) { throw 'curl.exe is required to download a Release component.' }
+if ($env:GH_TOKEN -match '[\r\n"]') { throw 'GH_TOKEN contains characters that cannot be passed to curl safely.' }
+
+function Invoke-CurlDownload([string]$Destination, [string]$SourceUri) {
+  $destinationValue = $Destination.Replace('\', '/').Replace('"', '\"')
+  $uriValue = $SourceUri.Replace('"', '\"')
+  $config = @(
+    'http1.1'
+    'location'
+    'fail'
+    'silent'
+    'show-error'
+    "output = `"$destinationValue`""
+    "url = `"$uriValue`""
+    "header = `"Accept: $($headers.Accept)`""
+    "header = `"X-GitHub-Api-Version: $($headers.'X-GitHub-Api-Version')`""
+    "header = `"User-Agent: $($headers.'User-Agent')`""
+    "header = `"Authorization: Bearer $($env:GH_TOKEN)`""
+  ) -join "`n"
+  $configPath = Join-Path $downloadDirectory ("curl-$([Guid]::NewGuid().ToString('N')).cfg")
+  try {
+    [IO.File]::WriteAllText($configPath, $config, (New-Object Text.UTF8Encoding($false)))
+    $curlOutput = @(& $curl.Source --config $configPath 2>&1)
+    if ($LASTEXITCODE -ne 0) {
+      throw "curl.exe failed with exit code $LASTEXITCODE`: $(($curlOutput | Out-String).Trim())"
+    }
+  } finally {
+    if (Test-Path -LiteralPath $configPath) { Remove-Item -LiteralPath $configPath -Force }
+  }
+}
 
 try {
   $downloaded = $false
   for ($attempt = 1; $attempt -le 3; $attempt++) {
     try {
-      $authorization = "header = `"Authorization: Bearer $($env:GH_TOKEN)`""
-      $authorization | & $curl.Source --config - --http1.1 --location --fail --silent --show-error `
-        --header "Accept: $($headers.Accept)" `
-        --header "X-GitHub-Api-Version: $($headers.'X-GitHub-Api-Version')" `
-        --header "User-Agent: $($headers.'User-Agent')" `
-        --output $archivePath $uri
-      if ($LASTEXITCODE -ne 0) { throw "curl.exe failed with exit code $LASTEXITCODE." }
+      Invoke-CurlDownload -Destination $archivePath -SourceUri $uri
       $downloaded = $true
       break
     } catch {
