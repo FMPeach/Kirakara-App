@@ -326,6 +326,7 @@ body {
   flex-shrink: 0;
   cursor: pointer;
   border: 1px solid var(--md-sys-outline);
+  overflow: hidden;
 }
 .bot-info { flex: 1; min-width: 0; cursor: pointer; }
 .bot-title {
@@ -454,7 +455,7 @@ body {
   flex-shrink: 0;
   overflow: hidden;
 }
-.qp-cover img { width: 100%; height: 100%; object-fit: cover; }
+.bot-cover img, .qp-cover img { width: 100%; height: 100%; object-fit: cover; }
 .qp-now-info { flex: 1; min-width: 0; }
 .qp-now-title {
   font-size: 15px;
@@ -681,7 +682,7 @@ body {
 <!-- 底部播放状态 Dock (Floating Bar) -->
 <div class="bot-bar-wrapper">
   <div class="bot-bar idle" id="botBar">
-    <div class="bot-cover" onclick="openQueue()">
+    <div class="bot-cover" id="botCover" onclick="openQueue()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
     </div>
     <div class="bot-info" onclick="openQueue()">
@@ -755,28 +756,30 @@ const API = '';
 async function api(path, opts) { const r = await fetch(API + path, opts); if (!r.ok) throw new Error(r.status); return r.json(); }
 let currentTab = 'featured', featured = [], queueData = {current:null,upcoming:[],isPlaying:false};
 let playback = {isPlaying:false, volume:72, key:0, track:'vocal', currentSong:null};
-const coverPlaceholder = document.getElementById('qpCover').firstElementChild;
-let currentCoverUrl = '', requestedCoverUrl = '';
+const coverSlots = ['botCover', 'qpCover'].map(id => {
+  const container = document.getElementById(id);
+  return {container, placeholder: container.firstElementChild};
+});
+let currentCoverUrl = '';
 
 function updateNowCover() {
   const url = playback.currentSong?.coverUrl || '';
-  const container = document.getElementById('qpCover');
-  if (url !== currentCoverUrl) {
-    currentCoverUrl = url;
-    requestedCoverUrl = '';
-    container.replaceChildren(coverPlaceholder);
+  if (url === currentCoverUrl) return;
+  currentCoverUrl = url;
+  for (const {container, placeholder} of coverSlots) {
+    container.replaceChildren(placeholder);
   }
-  if (!url || requestedCoverUrl === url ||
-      !document.getElementById('queuePanel').classList.contains('open')) return;
-  requestedCoverUrl = url;
+  if (!url) return;
   const image = new Image();
   image.alt = '';
   image.decoding = 'async';
   image.onload = () => {
-    if (currentCoverUrl === url) container.replaceChildren(image);
+    if (currentCoverUrl !== url) return;
+    coverSlots.forEach(({container}, index) => {
+      container.replaceChildren(index === 0 ? image : image.cloneNode());
+    });
   };
-  // A missing cover keeps the placeholder; do not retry on each state poll.
-  image.onerror = () => {};
+  // Only a new cover URL starts a load; a failed load keeps both placeholders.
   image.src = url;
 }
 
