@@ -4,6 +4,7 @@ import 'package:ffi/ffi.dart';
 
 import '../domain/audience_overlay_options.dart';
 import '../domain/phone_order_qr_image.dart';
+import 'playback_service.dart';
 
 typedef AudienceQueueEntry = ({String title, String artist});
 
@@ -13,6 +14,7 @@ abstract interface class AudienceHudSink {
   bool setState(AudienceOverlayOptions options, String network,
       List<AudienceQueueEntry> queue,
       {bool wifi = false, AudienceQueueEntry? current});
+  bool notifyPlaybackAction(PlaybackActionEvent event);
 }
 
 final class _QueueItem extends Struct {
@@ -57,6 +59,8 @@ final class _QrImage extends Struct {
 
 typedef _SetStateN = Bool Function(Pointer<Void>, Pointer<_HudState>);
 typedef _SetState = bool Function(Pointer<Void>, Pointer<_HudState>);
+typedef _NotifyActionN = Bool Function(Pointer<Void>, Uint32, Uint64);
+typedef _NotifyAction = bool Function(Pointer<Void>, int, int);
 typedef _SetImageN = Bool Function(Pointer<Void>, Pointer<_QrImage>);
 typedef _SetImage = bool Function(Pointer<Void>, Pointer<_QrImage>);
 typedef _LanCallback = Void Function(Pointer<Void>, Uint64, Bool);
@@ -80,16 +84,31 @@ class AudienceHudFFI implements AudienceHudSink {
       _image = null;
       _callback = null;
     }
+    // Look up independently: an old DLL still supports QR and queue updates.
+    try {
+      _notifyAction = library.lookupFunction<_NotifyActionN, _NotifyAction>(
+          'show_host_notify_playback_action');
+    } on ArgumentError {
+      _notifyAction = null;
+    }
   }
   final Pointer<Void> _host;
   _SetState? _state;
   _SetImage? _image;
   _SetCallback? _callback;
+  _NotifyAction? _notifyAction;
   NativeCallable<_LanCallback>? _listener;
   void Function()? _onLanChanged;
   int _revision = 0;
   bool _disposed = false;
   PhoneOrderQrImage? _lastImage;
+
+  @override
+  bool notifyPlaybackAction(PlaybackActionEvent event) {
+    if (_disposed) return false;
+    return _notifyAction?.call(_host, event.action.hostCode, event.sequence) ??
+        false;
+  }
 
   @override
   set onLanChanged(void Function()? callback) {

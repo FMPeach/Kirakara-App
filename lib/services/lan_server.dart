@@ -229,7 +229,7 @@ class LanServer {
 
     // POST /api/playback/next
     if (method == 'POST' && path == '/api/playback/next') {
-      _playbackService.next();
+      _playbackService.next(requestedByUser: true);
       _json(request, 200, {'ok': true});
       return;
     }
@@ -249,7 +249,7 @@ class LanServer {
       final body = await utf8.decoder.bind(request).join();
       final payload = jsonDecode(body) as Map<String, dynamic>;
       final vol = (payload['volume'] as num?)?.toInt() ?? 72;
-      _playbackService.setVolume(vol);
+      _playbackService.setVolume(vol, requestedByUser: true);
       _json(
           request, 200, {'ok': true, 'volume': _playbackService.state.volume});
       return;

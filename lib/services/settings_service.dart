@@ -48,6 +48,7 @@ class SettingsService extends ChangeNotifier {
             'qr_enabled': _audienceOverlay.qrEnabled,
             'queue_enabled': _audienceOverlay.queueEnabled,
             'announcement_enabled': _audienceOverlay.announcementEnabled,
+            'action_enabled': _audienceOverlay.actionEnabled,
           },
         }),
         flush: true,
@@ -111,6 +112,9 @@ class SettingsService extends ChangeNotifier {
         announcementEnabled: overlay['announcement_enabled'] is bool
             ? overlay['announcement_enabled'] as bool
             : false,
+        actionEnabled: overlay['action_enabled'] is bool
+            ? overlay['action_enabled'] as bool
+            : true,
       );
     }
     _customAnnouncement =

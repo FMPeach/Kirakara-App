@@ -10,14 +10,18 @@ void main() {
     expect(defaults.qrEnabled, isTrue);
     expect(defaults.queueEnabled, isTrue);
     expect(defaults.announcementEnabled, isFalse);
+    expect(defaults.actionEnabled, isTrue);
     for (final qr in [false, true]) {
       for (final queue in [false, true]) {
         final options = defaults.copyWith(qrEnabled: qr, queueEnabled: queue);
         expect(options.qrEnabled, qr);
         expect(options.queueEnabled, queue);
         expect(options.announcementEnabled, isFalse);
+        expect(options.actionEnabled, isTrue);
       }
     }
+    expect(defaults.copyWith(actionEnabled: false),
+        const AudienceOverlayOptions(actionEnabled: false));
   });
 
   test('QR snapshot owns its immutable bytes and module geometry', () {

@@ -32,9 +32,13 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    await tester.pumpWidget(const TickerMode(
+    final settingsFile = _prepareSettingsFile('');
+    await tester.pumpWidget(TickerMode(
       enabled: false,
-      child: KirakaraApp(databasePath: ':memory:'),
+      child: KirakaraApp(
+        databasePath: ':memory:',
+        settingsFilePath: settingsFile,
+      ),
     ));
     await tester.pump();
 
@@ -92,10 +96,11 @@ void main() {
     expect(find.text('浮窗设置'), findsOneWidget);
     expect(find.text('显示二维码点歌'), findsOneWidget);
     expect(find.text('歌曲结束前显示播放列表'), findsOneWidget);
+    expect(find.text('显示状态指示'), findsOneWidget);
     expect(find.text('显示滚动报幕'), findsNothing);
     final hudSwitches = find.descendant(
         of: find.byType(SwitchListTile), matching: find.byType(Switch));
-    expect(hudSwitches, findsNWidgets(2));
+    expect(hudSwitches, findsNWidgets(3));
     for (final toggle in tester.widgetList<Switch>(hudSwitches)) {
       expect(toggle.activeThumbColor, outputSwitch.activeThumbColor);
       expect(toggle.activeTrackColor, outputSwitch.activeTrackColor);
@@ -111,6 +116,26 @@ void main() {
             outputSwitch.trackOutlineColor!.resolve(states));
       }
     }
+    final actionSwitch = find.widgetWithText(SwitchListTile, '显示状态指示');
+    expect(tester.widget<SwitchListTile>(actionSwitch).value, isTrue);
+    await tester.ensureVisible(actionSwitch);
+    await tester.tap(actionSwitch);
+    await tester.pump();
+    expect(tester.widget<SwitchListTile>(actionSwitch).value, isFalse);
+    expect(
+        tester
+            .widget<SwitchListTile>(
+              find.widgetWithText(SwitchListTile, '显示二维码点歌'),
+            )
+            .value,
+        isTrue);
+    expect(
+        tester
+            .widget<SwitchListTile>(
+              find.widgetWithText(SwitchListTile, '歌曲结束前显示播放列表'),
+            )
+            .value,
+        isTrue);
   });
 
   testWidgets('browse pages render inside the controller shell',

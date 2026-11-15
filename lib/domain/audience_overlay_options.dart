@@ -4,21 +4,25 @@ class AudienceOverlayOptions {
     this.qrEnabled = true,
     this.queueEnabled = true,
     this.announcementEnabled = false,
+    this.actionEnabled = true,
   });
 
   final bool qrEnabled;
   final bool queueEnabled;
   final bool announcementEnabled;
+  final bool actionEnabled;
 
   AudienceOverlayOptions copyWith({
     bool? qrEnabled,
     bool? queueEnabled,
     bool? announcementEnabled,
+    bool? actionEnabled,
   }) =>
       AudienceOverlayOptions(
         qrEnabled: qrEnabled ?? this.qrEnabled,
         queueEnabled: queueEnabled ?? this.queueEnabled,
         announcementEnabled: announcementEnabled ?? this.announcementEnabled,
+        actionEnabled: actionEnabled ?? this.actionEnabled,
       );
 
   @override
@@ -26,8 +30,10 @@ class AudienceOverlayOptions {
       other is AudienceOverlayOptions &&
       qrEnabled == other.qrEnabled &&
       queueEnabled == other.queueEnabled &&
-      announcementEnabled == other.announcementEnabled;
+      announcementEnabled == other.announcementEnabled &&
+      actionEnabled == other.actionEnabled;
 
   @override
-  int get hashCode => Object.hash(qrEnabled, queueEnabled, announcementEnabled);
+  int get hashCode =>
+      Object.hash(qrEnabled, queueEnabled, announcementEnabled, actionEnabled);
 }

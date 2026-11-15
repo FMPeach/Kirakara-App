@@ -114,7 +114,7 @@ class _BottomBar extends StatelessWidget {
                     icon: Icons.skip_next,
                     label: '切歌',
                     onPressed: () {
-                      playbackService.next();
+                      playbackService.next(requestedByUser: true);
                       onAfterQueueChanged();
                     },
                   ),

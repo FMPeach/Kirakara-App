@@ -163,49 +163,51 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         listenable: widget.settingsService,
         builder: (context, _) {
           final options = widget.settingsService.audienceOverlay;
+          Widget overlaySwitch(
+              String label, bool value, ValueChanged<bool> onChanged) {
+            return SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(label),
+              activeThumbColor: Colors.white,
+              activeTrackColor: KiraColors.red,
+              inactiveThumbColor: const Color(0xffbfc0c6),
+              inactiveTrackColor: const Color(0xff303137),
+              trackOutlineColor: WidgetStateProperty.resolveWith(
+                (states) => states.contains(WidgetState.disabled)
+                    ? KiraColors.line
+                    : states.contains(WidgetState.selected)
+                        ? KiraColors.red
+                        : const Color(0xff76777e),
+              ),
+              value: value,
+              onChanged: onChanged,
+            );
+          }
+
           return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const _SectionHeader(
                     title: '浮窗设置', icon: Icons.picture_in_picture_alt),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('显示二维码点歌'),
-                  activeThumbColor: Colors.white,
-                  activeTrackColor: KiraColors.red,
-                  inactiveThumbColor: const Color(0xffbfc0c6),
-                  inactiveTrackColor: const Color(0xff303137),
-                  trackOutlineColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.disabled)
-                        ? KiraColors.line
-                        : states.contains(WidgetState.selected)
-                            ? KiraColors.red
-                            : const Color(0xff76777e),
-                  ),
-                  value: options.qrEnabled,
-                  onChanged: (value) =>
-                      widget.settingsService.setAudienceOverlay(
+                overlaySwitch(
+                  '显示二维码点歌',
+                  options.qrEnabled,
+                  (value) => widget.settingsService.setAudienceOverlay(
                     options.copyWith(qrEnabled: value),
                   ),
                 ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('歌曲结束前显示播放列表'),
-                  activeThumbColor: Colors.white,
-                  activeTrackColor: KiraColors.red,
-                  inactiveThumbColor: const Color(0xffbfc0c6),
-                  inactiveTrackColor: const Color(0xff303137),
-                  trackOutlineColor: WidgetStateProperty.resolveWith(
-                    (states) => states.contains(WidgetState.disabled)
-                        ? KiraColors.line
-                        : states.contains(WidgetState.selected)
-                            ? KiraColors.red
-                            : const Color(0xff76777e),
-                  ),
-                  value: options.queueEnabled,
-                  onChanged: (value) =>
-                      widget.settingsService.setAudienceOverlay(
+                overlaySwitch(
+                  '歌曲结束前显示播放列表',
+                  options.queueEnabled,
+                  (value) => widget.settingsService.setAudienceOverlay(
                     options.copyWith(queueEnabled: value),
+                  ),
+                ),
+                overlaySwitch(
+                  '显示状态指示',
+                  options.actionEnabled,
+                  (value) => widget.settingsService.setAudienceOverlay(
+                    options.copyWith(actionEnabled: value),
                   ),
                 ),
               ]);

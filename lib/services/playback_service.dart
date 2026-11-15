@@ -5,6 +5,23 @@ import '../domain/queue_item.dart';
 import '../domain/song.dart';
 import 'queue_service.dart';
 
+enum PlaybackAction {
+  none(0),
+  play(1),
+  pause(2),
+  replay(3),
+  skip(4),
+  vocal(5),
+  accompaniment(6),
+  volumeUp(7),
+  volumeDown(8);
+
+  const PlaybackAction(this.hostCode);
+  final int hostCode;
+}
+
+typedef PlaybackActionEvent = ({PlaybackAction action, int sequence});
+
 class PlaybackService extends ChangeNotifier {
   PlaybackService({
     required QueueService queueService,
@@ -16,18 +33,26 @@ class PlaybackService extends ChangeNotifier {
   PlaybackState _state;
   int _directSequence = 0;
   int _replayRevision = 0;
+  PlaybackActionEvent? _actionEvent;
 
   PlaybackState get state => _state;
   int get replayRevision => _replayRevision;
+  PlaybackActionEvent? get actionEvent => _actionEvent;
 
   void disposeService() {}
 
   void play() {
-    _setState(_state.copyWith(mode: PlaybackMode.playing));
+    _setState(_state.copyWith(mode: PlaybackMode.playing),
+        action: _state.currentItem != null && !_state.isPlaying
+            ? PlaybackAction.play
+            : null);
   }
 
   void pause() {
-    _setState(_state.copyWith(mode: PlaybackMode.paused));
+    _setState(_state.copyWith(mode: PlaybackMode.paused),
+        action: _state.currentItem != null && _state.isPlaying
+            ? PlaybackAction.pause
+            : null);
   }
 
   void togglePlayPause() {
@@ -41,6 +66,7 @@ class PlaybackService extends ChangeNotifier {
         position: Duration.zero,
         mode: PlaybackMode.playing,
       ),
+      action: _state.currentItem != null ? PlaybackAction.replay : null,
     );
   }
 
@@ -58,8 +84,12 @@ class PlaybackService extends ChangeNotifier {
     return true;
   }
 
-  void next() {
+  void next({bool requestedByUser = false}) {
+    final hadCurrent = _state.currentItem != null;
     final nextItem = _queueService.takeNext();
+    final action = requestedByUser && (hadCurrent || nextItem != null)
+        ? PlaybackAction.skip
+        : null;
     if (nextItem == null) {
       _setState(
         _state.copyWith(
@@ -69,6 +99,7 @@ class PlaybackService extends ChangeNotifier {
           clearCurrentItem: true,
           clearUpNext: true,
         ),
+        action: action,
       );
       return;
     }
@@ -83,6 +114,7 @@ class PlaybackService extends ChangeNotifier {
         upNext: upNext,
         clearUpNext: upNext == null,
       ),
+      action: action,
     );
   }
 
@@ -136,19 +168,35 @@ class PlaybackService extends ChangeNotifier {
     setKey(_state.key + delta);
   }
 
-  void setVolume(int volume) {
-    _setState(_state.copyWith(volume: volume.clamp(0, 100).toInt()));
+  void setVolume(int volume, {bool requestedByUser = false}) {
+    final nextVolume = volume.clamp(0, 100).toInt();
+    final action = requestedByUser && nextVolume != _state.volume
+        ? (nextVolume > _state.volume
+            ? PlaybackAction.volumeUp
+            : PlaybackAction.volumeDown)
+        : null;
+    _setState(_state.copyWith(volume: nextVolume), action: action);
   }
 
   void changeVolumeBy(int delta) {
-    setVolume(_state.volume + delta);
+    setVolume(_state.volume + delta, requestedByUser: true);
   }
 
   void toggleAudioTrack() {
     final nextMode = _state.audioTrackMode == AudioTrackMode.vocal
         ? AudioTrackMode.accompaniment
         : AudioTrackMode.vocal;
-    _setState(_state.copyWith(audioTrackMode: nextMode));
+    final song = _state.currentSong;
+    // External links already represent a single selected part and have no
+    // alternate audio track for Show to switch to.
+    _setState(
+      _state.copyWith(audioTrackMode: nextMode),
+      action: song != null && !song.isExternalSong
+          ? (nextMode == AudioTrackMode.vocal
+              ? PlaybackAction.vocal
+              : PlaybackAction.accompaniment)
+          : null,
+    );
   }
 
   void refreshUpNext() {
@@ -156,7 +204,24 @@ class PlaybackService extends ChangeNotifier {
     _setState(_state.copyWith(upNext: upNext, clearUpNext: upNext == null));
   }
 
-  void _setState(PlaybackState nextState, {bool notify = true}) {
+  void _setState(PlaybackState nextState,
+      {bool notify = true, PlaybackAction? action}) {
+    // An internal departure from a paused item also clears the pause beneath
+    // a temporary audio indicator.
+    final previousItem = _state.currentItem;
+    if (action == null &&
+        previousItem != null &&
+        _state.mode == PlaybackMode.paused &&
+        (nextState.mode != PlaybackMode.paused ||
+            previousItem.id != nextState.currentItem?.id)) {
+      action = PlaybackAction.none;
+    }
+    if (action != null) {
+      _actionEvent = (
+        action: action,
+        sequence: (_actionEvent?.sequence ?? 0) + 1,
+      );
+    }
     _state = nextState;
     if (notify) notifyListeners();
   }

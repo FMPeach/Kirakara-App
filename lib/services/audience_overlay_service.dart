@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../domain/audience_overlay_options.dart';
+import '../domain/playback_state.dart';
 import '../domain/queue_item.dart';
 
 import 'audience_hud_ffi.dart';
@@ -31,6 +32,8 @@ class AudienceOverlayService {
   final QueueService queue;
   final PlaybackService playback;
   QueueItem? _observedItem;
+  int _lastActionSequence = 0;
+  int _publishedActionSequence = 0;
   AudienceOverlayOptions? _lastOptions;
   String? _lastNetwork;
   bool? _lastWifi;
@@ -39,9 +42,19 @@ class AudienceOverlayService {
   bool _disposed = false;
 
   void _onPlaybackChanged() {
-    // Volume, pause and position updates do not change the cached card.
-    if (identical(_observedItem, playback.state.currentItem)) return;
-    _sync();
+    if (!identical(_observedItem, playback.state.currentItem)) _sync();
+    final event = playback.actionEvent;
+    if (event != null && event.sequence > _lastActionSequence) {
+      _lastActionSequence = event.sequence;
+      if (settings.audienceOverlay.actionEnabled) _publishAction(event.action);
+    }
+  }
+
+  void _publishAction(PlaybackAction action) {
+    sink?.notifyPlaybackAction((
+      action: action,
+      sequence: ++_publishedActionSequence,
+    ));
   }
 
   void _networkChanged() {
@@ -59,6 +72,16 @@ class AudienceOverlayService {
     final qr = lan.qrImages.image;
     sink?.setImage(qr);
     final options = settings.audienceOverlay;
+    final previousOptions = _lastOptions;
+    _lastOptions = options;
+    if (previousOptions?.actionEnabled != options.actionEnabled) {
+      if (!options.actionEnabled) {
+        if (previousOptions != null) _publishAction(PlaybackAction.none);
+      } else if (playback.state.currentItem != null &&
+          playback.state.mode == PlaybackMode.paused) {
+        _publishAction(PlaybackAction.pause);
+      }
+    }
     final network = lan.networkName;
     final wifi = lan.networkIsWifi;
     _observedItem = playback.state.currentItem;
@@ -72,14 +95,16 @@ class AudienceOverlayService {
         .map((item) =>
             (title: item.song.title, artist: item.song.artist?.name ?? ''))
         .toList(growable: false);
-    if (_lastOptions == options &&
+    // The action switch is handled above, independently of the QR/list card.
+    if (previousOptions?.qrEnabled == options.qrEnabled &&
+        previousOptions?.queueEnabled == options.queueEnabled &&
+        previousOptions?.announcementEnabled == options.announcementEnabled &&
         _lastNetwork == network &&
         _lastWifi == wifi &&
         _lastCurrent == current &&
         listEquals(_lastQueue, entries)) {
       return;
     }
-    _lastOptions = options;
     _lastNetwork = network;
     _lastWifi = wifi;
     _lastQueue = entries;

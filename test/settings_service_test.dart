@@ -111,13 +111,19 @@ void main() {
         Directory.systemTemp.createTempSync('kirakara_overlay_settings_');
     addTearDown(() => directory.deleteSync(recursive: true));
     final path = '${directory.path}/settings.json';
-    File(path).writeAsStringSync('{"custom_announcement":"hello"}');
+    File(path).writeAsStringSync(
+      '{"custom_announcement":"hello","audience_overlay":{"qr_enabled":true}}',
+    );
     final settings = SettingsService(
         initialCacheDirectoryPath: directory.path, settingsFilePath: path);
     await settings.load();
     expect(settings.audienceOverlay, const AudienceOverlayOptions());
     const options = AudienceOverlayOptions(
-        qrEnabled: false, queueEnabled: true, announcementEnabled: true);
+      qrEnabled: false,
+      queueEnabled: true,
+      announcementEnabled: true,
+      actionEnabled: false,
+    );
     await settings.setAudienceOverlay(options);
     settings.dispose();
     final restored = SettingsService(
