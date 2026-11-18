@@ -103,9 +103,15 @@ void main() {
     expect(announcements, isEmpty);
     await settings.setAudienceOverlay(
         settings.audienceOverlay.copyWith(announcementEnabled: true));
-    expect(announcements.single.announcementText, '欢迎使用 KiraKara，扫码点歌');
+    const idleText = '当前播放：等待点歌  ·  下一首：暂无，快去点一首吧';
+    expect(announcements.single.announcementText, idleText);
+    expect(announcements.single.announcementVisible, isTrue);
     await settings.setCustomAnnouncement('自定义公告');
-    expect(announcements.last.announcementText, '自定义公告');
+    expect(announcements.last.announcementText, '自定义公告  ·  $idleText');
+    await settings.setCustomAnnouncement(' \n');
+    expect(announcements.last.announcementText, idleText);
+    expect(announcements.last.announcementVisible, isTrue);
+    await settings.setCustomAnnouncement('自定义公告');
     playback.pause();
     playback.next(requestedByUser: true);
     expect(sink.actions, isEmpty);
@@ -126,8 +132,8 @@ void main() {
     expect(sink.queue.map((entry) => entry.title),
         ['Song 2', 'Song 3', 'Song 4', 'Song 5']);
     final afterCurrent = sink.states;
-    expect(announcements.last.announcementText, contains('正在播放：Song 1'));
-    expect(announcements.last.announcementText, contains('下一首：Song 2'));
+    expect(announcements.last.announcementText, contains('当前播放：Song 1 - 未知歌手'));
+    expect(announcements.last.announcementText, contains('下一首：Song 2 - 未知歌手'));
     final afterAnnouncement = announcements.length;
     for (var i = 0; i < 100; i++) {
       playback.syncEnginePosition(Duration(seconds: i));
@@ -161,7 +167,7 @@ void main() {
     expect(announcements.length, afterAnnouncement,
         reason: 'play and pause never append transient playback states');
     expect(announcements.last.announcementText,
-        '自定义公告　·　正在播放：Song 1　·　下一首：Song 2');
+        '自定义公告  ·  当前播放：Song 1 - 未知歌手  ·  下一首：Song 2 - 未知歌手');
     playback.replay();
     playback.replay();
     expect(announcements.length, afterAnnouncement + 2,
@@ -186,6 +192,8 @@ void main() {
     }
     expect(sink.states, afterCurrent);
     expect(sink.actions.length, 4);
+    expect(announcements.length, afterAnnouncement + 2,
+        reason: 'download notifications do not restart unchanged text');
     queue.markFailed(queue.items.first.id, 'test');
     expect(sink.queue.first.title, 'Song 3');
     await images.updateEndpoint(Uri.parse('http://192.168.1.2:7391'));
@@ -281,6 +289,15 @@ void main() {
     expect(sink.actions.last.action, PlaybackAction.volumeUp);
     expect(sink.actions.map((e) => e.sequence),
         List.generate(sink.actions.length, (i) => i + 1));
+
+    await settings.setAudienceOverlay(
+        settings.audienceOverlay.copyWith(announcementEnabled: true));
+    queue.clear();
+    playback.next();
+    expect(announcements.last.announcementText, '自定义公告  ·  $idleText');
+    await settings.setCustomAnnouncement('');
+    expect(announcements.last.announcementText, idleText);
+    expect(announcements.last.announcementVisible, isTrue);
 
     final beforeDispose = sink.states;
     final actionCount = sink.actions.length;

@@ -25,6 +25,14 @@ void main() {
     expect(valid.isValid, isTrue);
   });
 
+  test('empty full announcement can clear the native ticker', () {
+    const hidden = StageOverlayState(revision: 3, announcementText: '');
+    const visible = StageOverlayState(
+        revision: 4, announcementVisible: true, announcementText: '');
+    expect(hidden.isValid, isTrue);
+    expect(visible.isValid, isFalse);
+  });
+
   test('asset cache identity requires key and path together', () {
     const missingPath = StageOverlayAsset(
       cacheKey: 'qr-frame',

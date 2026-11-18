@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 
+import '../domain/announcement_text.dart';
 import '../domain/audience_overlay_options.dart';
 import '../domain/playback_state.dart';
 import '../domain/queue_item.dart';
@@ -34,6 +35,7 @@ class AudienceOverlayService {
   final QueueService queue;
   final PlaybackService playback;
   final bool Function(StageOverlayState)? announcementSink;
+  static final _announcementLineBreaks = RegExp(r'[\r\n]+');
   String? _lastAnnouncement;
   bool? _lastAnnouncementEnabled;
   int _announcementRevision = 0;
@@ -126,27 +128,13 @@ class AudienceOverlayService {
       return;
     }
     final enabled = settings.audienceOverlay.announcementEnabled;
-    final parts = <String>[];
-    void add(String text) {
-      final line = text.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
-      if (line.isNotEmpty) {
-        parts.add(line);
-      }
-    }
-
-    add(settings.customAnnouncement);
-    final current = playback.state.currentItem?.song.title;
-    if (current != null) {
-      add('正在播放：$current');
-    }
-    final upcoming = queue.items.where((item) => !queue.isFailed(item.id));
-    if (upcoming.isNotEmpty) {
-      add('下一首：${upcoming.first.song.title}');
-    }
-    if (parts.isEmpty) {
-      add('欢迎使用 KiraKara，扫码点歌');
-    }
-    var text = parts.join('　·　');
+    var text = buildAnnouncementItems(
+      customAnnouncement: settings.customAnnouncement,
+      current: playback.state.currentSong,
+      next: queue.nextPlayableItem?.song,
+    )
+        .map((part) => part.replaceAll(_announcementLineBreaks, ' ').trim())
+        .join(announcementSeparator);
     if (text.length > 16384) {
       text = text.substring(0, 16384);
       final last = text.codeUnitAt(text.length - 1);
@@ -164,7 +152,7 @@ class AudienceOverlayService {
     }
     if (publish(StageOverlayState(
       revision: ++_announcementRevision,
-      announcementVisible: enabled,
+      announcementVisible: enabled && text.isNotEmpty,
       announcementText: text,
     ))) {
       _lastAnnouncement = text;

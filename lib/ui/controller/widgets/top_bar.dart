@@ -48,7 +48,7 @@ class _TopBar extends StatelessWidget {
       isLoading: isLoading,
       isBuffering: isBuffering,
     );
-    final tickerText = tickerItems.join('  ·  ');
+    final tickerText = tickerItems.join(announcementSeparator);
     final brandBlock = SizedBox(
       width: 325,
       child: Row(
@@ -210,27 +210,22 @@ class _TopBar extends StatelessWidget {
     required bool isLoading,
     required bool isBuffering,
   }) {
-    final custom = customAnnouncement.trim();
-    var currentText = '当前播放：${_songLabel(current, fallback: '等待点歌')}';
+    var currentStatus = '';
     if (isLoading) {
-      currentText += ' · 正在加载';
+      currentStatus = '正在加载';
     } else if (isBuffering) {
-      currentText += ' · 正在缓冲';
+      currentStatus = '正在缓冲';
     } else if (current == null || mode == PlaybackMode.stopped) {
-      currentText += ' · 已停止';
+      currentStatus = '已停止';
     } else if (mode == PlaybackMode.paused) {
-      currentText += ' · 暂停中';
+      currentStatus = '暂停中';
     }
-    return <String>[
-      if (custom.isNotEmpty) custom,
-      currentText,
-      next == null ? '下一首：暂无，快去点一首吧' : '下一首：${_songLabel(next)}',
-    ];
-  }
-
-  static String _songLabel(Song? song, {String fallback = '暂无'}) {
-    if (song == null) return fallback;
-    return '${song.title} - ${song.artist?.name ?? '未知歌手'}';
+    return buildAnnouncementItems(
+      customAnnouncement: customAnnouncement,
+      current: current,
+      next: next,
+      currentStatus: currentStatus,
+    );
   }
 }
 

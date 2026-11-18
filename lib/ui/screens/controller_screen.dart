@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart'
     show Ticker, TickerCallback, TickerProvider;
 
+import '../../domain/announcement_text.dart';
 import '../../domain/media_asset.dart';
 import '../../domain/playback_state.dart';
 import '../../domain/queue_item.dart';
