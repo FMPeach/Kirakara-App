@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../domain/audience_overlay_options.dart';
 import '../domain/playback_state.dart';
 import '../domain/queue_item.dart';
+import '../domain/stage_overlay_state.dart';
 
 import 'audience_hud_ffi.dart';
 import 'lan_server.dart';
@@ -18,7 +19,8 @@ class AudienceOverlayService {
       required this.lan,
       required this.sink,
       required this.queue,
-      required this.playback}) {
+      required this.playback,
+      this.announcementSink}) {
     settings.addListener(_sync);
     lan.qrImages.addListener(_sync);
     queue.addListener(_sync);
@@ -31,6 +33,10 @@ class AudienceOverlayService {
   final AudienceHudSink? sink;
   final QueueService queue;
   final PlaybackService playback;
+  final bool Function(StageOverlayState)? announcementSink;
+  String? _lastAnnouncement;
+  bool? _lastAnnouncementEnabled;
+  int _announcementRevision = 0;
   QueueItem? _observedItem;
   int _lastActionSequence = 0;
   int _publishedActionSequence = 0;
@@ -47,6 +53,7 @@ class AudienceOverlayService {
     if (event != null && event.sequence > _lastActionSequence) {
       _lastActionSequence = event.sequence;
       if (settings.audienceOverlay.actionEnabled) _publishAction(event.action);
+      if (event.action == PlaybackAction.replay) _syncAnnouncement(force: true);
     }
   }
 
@@ -95,6 +102,7 @@ class AudienceOverlayService {
         .map((item) =>
             (title: item.song.title, artist: item.song.artist?.name ?? ''))
         .toList(growable: false);
+    _syncAnnouncement();
     // The action switch is handled above, independently of the QR/list card.
     if (previousOptions?.qrEnabled == options.qrEnabled &&
         previousOptions?.queueEnabled == options.queueEnabled &&
@@ -110,6 +118,58 @@ class AudienceOverlayService {
     _lastQueue = entries;
     _lastCurrent = current;
     sink?.setState(options, network, entries, wifi: wifi, current: current);
+  }
+
+  void _syncAnnouncement({bool force = false}) {
+    final publish = announcementSink;
+    if (publish == null || _disposed) {
+      return;
+    }
+    final enabled = settings.audienceOverlay.announcementEnabled;
+    final parts = <String>[];
+    void add(String text) {
+      final line = text.replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
+      if (line.isNotEmpty) {
+        parts.add(line);
+      }
+    }
+
+    add(settings.customAnnouncement);
+    final current = playback.state.currentItem?.song.title;
+    if (current != null) {
+      add('正在播放：$current');
+    }
+    final upcoming = queue.items.where((item) => !queue.isFailed(item.id));
+    if (upcoming.isNotEmpty) {
+      add('下一首：${upcoming.first.song.title}');
+    }
+    if (parts.isEmpty) {
+      add('欢迎使用 KiraKara，扫码点歌');
+    }
+    var text = parts.join('　·　');
+    if (text.length > 16384) {
+      text = text.substring(0, 16384);
+      final last = text.codeUnitAt(text.length - 1);
+      if (last >= 0xd800 && last <= 0xdbff) {
+        text = text.substring(0, text.length - 1);
+      }
+    }
+    if (!force &&
+        text == _lastAnnouncement &&
+        enabled == _lastAnnouncementEnabled) {
+      return;
+    }
+    if (!enabled && _lastAnnouncementEnabled != true) {
+      return;
+    }
+    if (publish(StageOverlayState(
+      revision: ++_announcementRevision,
+      announcementVisible: enabled,
+      announcementText: text,
+    ))) {
+      _lastAnnouncement = text;
+      _lastAnnouncementEnabled = enabled;
+    }
   }
 
   void dispose() {

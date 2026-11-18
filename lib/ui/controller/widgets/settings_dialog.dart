@@ -204,6 +204,13 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                   ),
                 ),
                 overlaySwitch(
+                  '显示滚动报幕',
+                  options.announcementEnabled,
+                  (value) => widget.settingsService.setAudienceOverlay(
+                    options.copyWith(announcementEnabled: value),
+                  ),
+                ),
+                overlaySwitch(
                   '显示状态指示',
                   options.actionEnabled,
                   (value) => widget.settingsService.setAudienceOverlay(

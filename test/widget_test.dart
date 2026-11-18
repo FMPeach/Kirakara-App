@@ -97,10 +97,10 @@ void main() {
     expect(find.text('显示二维码点歌'), findsOneWidget);
     expect(find.text('歌曲结束前显示播放列表'), findsOneWidget);
     expect(find.text('显示状态指示'), findsOneWidget);
-    expect(find.text('显示滚动报幕'), findsNothing);
+    expect(find.text('显示滚动报幕'), findsOneWidget);
     final hudSwitches = find.descendant(
         of: find.byType(SwitchListTile), matching: find.byType(Switch));
-    expect(hudSwitches, findsNWidgets(3));
+    expect(hudSwitches, findsNWidgets(4));
     for (final toggle in tester.widgetList<Switch>(hudSwitches)) {
       expect(toggle.activeThumbColor, outputSwitch.activeThumbColor);
       expect(toggle.activeTrackColor, outputSwitch.activeTrackColor);
@@ -116,6 +116,12 @@ void main() {
             outputSwitch.trackOutlineColor!.resolve(states));
       }
     }
+    final announcementSwitch = find.widgetWithText(SwitchListTile, '显示滚动报幕');
+    expect(tester.widget<SwitchListTile>(announcementSwitch).value, isFalse);
+    await tester.ensureVisible(announcementSwitch);
+    await tester.tap(announcementSwitch);
+    await tester.pump();
+    expect(tester.widget<SwitchListTile>(announcementSwitch).value, isTrue);
     final actionSwitch = find.widgetWithText(SwitchListTile, '显示状态指示');
     expect(tester.widget<SwitchListTile>(actionSwitch).value, isTrue);
     await tester.ensureVisible(actionSwitch);

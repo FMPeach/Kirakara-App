@@ -134,7 +134,8 @@ class _KirakaraAppState extends State<KirakaraApp> {
         playback: playbackService,
         settings: settingsService,
         lan: lanServer,
-        sink: kirakaraShowService.audienceHud);
+        sink: kirakaraShowService.audienceHud,
+        announcementSink: kirakaraShowService.setStageOverlayState);
     // 热插拔：插入第二屏后自动开双屏
     displayManager.onStageDisplayAttached = _onStageDisplayHotPlugged;
     unawaited(_initializeDisplayOutput());

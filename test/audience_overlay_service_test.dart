@@ -7,6 +7,7 @@ import 'package:kirakara_app/data/local_db/local_database.dart';
 import 'package:kirakara_app/domain/audience_overlay_options.dart';
 import 'package:kirakara_app/domain/phone_order_qr_image.dart';
 import 'package:kirakara_app/domain/song.dart';
+import 'package:kirakara_app/domain/stage_overlay_state.dart';
 import 'package:kirakara_app/services/audience_hud_ffi.dart';
 import 'package:kirakara_app/services/audience_overlay_service.dart';
 import 'package:kirakara_app/services/bilibili_account_service.dart';
@@ -88,12 +89,23 @@ void main() {
         settingsFilePath: '${dir.path}/settings.json');
     addTearDown(settings.dispose);
     final sink = _Sink();
+    final announcements = <StageOverlayState>[];
     final service = AudienceOverlayService(
         settings: settings,
         lan: lan,
         sink: sink,
         queue: queue,
-        playback: playback);
+        playback: playback,
+        announcementSink: (state) {
+          announcements.add(state);
+          return true;
+        });
+    expect(announcements, isEmpty);
+    await settings.setAudienceOverlay(
+        settings.audienceOverlay.copyWith(announcementEnabled: true));
+    expect(announcements.single.announcementText, '欢迎使用 KiraKara，扫码点歌');
+    await settings.setCustomAnnouncement('自定义公告');
+    expect(announcements.last.announcementText, '自定义公告');
     playback.pause();
     playback.next(requestedByUser: true);
     expect(sink.actions, isEmpty);
@@ -114,11 +126,16 @@ void main() {
     expect(sink.queue.map((entry) => entry.title),
         ['Song 2', 'Song 3', 'Song 4', 'Song 5']);
     final afterCurrent = sink.states;
+    expect(announcements.last.announcementText, contains('正在播放：Song 1'));
+    expect(announcements.last.announcementText, contains('下一首：Song 2'));
+    final afterAnnouncement = announcements.length;
     for (var i = 0; i < 100; i++) {
       playback.syncEnginePosition(Duration(seconds: i));
       playback.setVolume(i);
     }
     expect(sink.actions, isEmpty);
+    expect(announcements.length, afterAnnouncement,
+        reason: 'position and volume do not republish text');
     Future<void> remote(String action, {int? volume}) async {
       final client = HttpClient();
       try {
@@ -141,8 +158,18 @@ void main() {
     playback.pause();
     playback.play();
     playback.play();
+    expect(announcements.length, afterAnnouncement,
+        reason: 'play and pause never append transient playback states');
+    expect(announcements.last.announcementText,
+        '自定义公告　·　正在播放：Song 1　·　下一首：Song 2');
     playback.replay();
     playback.replay();
+    expect(announcements.length, afterAnnouncement + 2,
+        reason: 'each replay resends identical text');
+    expect(announcements.last.announcementText,
+        announcements[afterAnnouncement - 1].announcementText);
+    expect(announcements.last.revision,
+        greaterThan(announcements[afterAnnouncement - 1].revision));
     expect(sink.actions.map((e) => e.action), [
       PlaybackAction.pause,
       PlaybackAction.play,
@@ -150,6 +177,7 @@ void main() {
       PlaybackAction.replay,
     ]);
     expect(sink.states, afterCurrent);
+    expect(announcements.length, afterAnnouncement + 2);
     for (var i = 0; i < 100; i++) {
       // Download completion/availability can notify both services without
       // changing any row displayed by the audience HUD.
