@@ -3,7 +3,7 @@ class AudienceOverlayOptions {
   const AudienceOverlayOptions({
     this.qrEnabled = true,
     this.queueEnabled = true,
-    this.announcementEnabled = false,
+    this.announcementEnabled = true,
     this.actionEnabled = true,
   });
 

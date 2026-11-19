@@ -117,11 +117,11 @@ void main() {
       }
     }
     final announcementSwitch = find.widgetWithText(SwitchListTile, '显示滚动报幕');
-    expect(tester.widget<SwitchListTile>(announcementSwitch).value, isFalse);
+    expect(tester.widget<SwitchListTile>(announcementSwitch).value, isTrue);
     await tester.ensureVisible(announcementSwitch);
     await tester.tap(announcementSwitch);
     await tester.pump();
-    expect(tester.widget<SwitchListTile>(announcementSwitch).value, isTrue);
+    expect(tester.widget<SwitchListTile>(announcementSwitch).value, isFalse);
     final actionSwitch = find.widgetWithText(SwitchListTile, '显示状态指示');
     expect(tester.widget<SwitchListTile>(actionSwitch).value, isTrue);
     await tester.ensureVisible(actionSwitch);
@@ -421,7 +421,11 @@ void main() {
       () => messenger.setMockMethodCallHandler(windowChannel, null),
     );
 
-    await tester.pumpWidget(const KirakaraApp(databasePath: ':memory:'));
+    final settingsFile = _prepareSettingsFile('');
+    await tester.pumpWidget(KirakaraApp(
+      databasePath: ':memory:',
+      settingsFilePath: settingsFile,
+    ));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 

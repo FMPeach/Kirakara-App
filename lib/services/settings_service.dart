@@ -15,12 +15,13 @@ class SettingsService extends ChangeNotifier {
         _settingsFilePath = settingsFilePath;
 
   static const _customAnnouncementKey = 'custom_announcement';
+  static const _defaultCustomAnnouncement = '欢迎使用Kirakara！';
   static const _prefetchLookaheadKey = 'prefetch_lookahead';
   static const _cacheDirectoryKey = 'cache_directory';
 
   final String _settingsFilePath;
   bool _disposed = false;
-  String _customAnnouncement = '';
+  String _customAnnouncement = _defaultCustomAnnouncement;
   int _prefetchLookahead = 3;
   String _cacheDirectoryPath;
   String? _cacheDirectoryPreference;
@@ -111,14 +112,14 @@ class SettingsService extends ChangeNotifier {
             : true,
         announcementEnabled: overlay['announcement_enabled'] is bool
             ? overlay['announcement_enabled'] as bool
-            : false,
+            : true,
         actionEnabled: overlay['action_enabled'] is bool
             ? overlay['action_enabled'] as bool
             : true,
       );
     }
-    _customAnnouncement =
-        (stored[_customAnnouncementKey] as String?)?.trim() ?? '';
+    _customAnnouncement = (stored[_customAnnouncementKey] as String?)?.trim() ??
+        _defaultCustomAnnouncement;
     _prefetchLookahead = ((stored[_prefetchLookaheadKey] as num?)?.toInt() ?? 3)
         .clamp(1, 3)
         .toInt();

@@ -7,6 +7,68 @@ import 'package:kirakara_app/domain/audience_overlay_options.dart';
 import 'package:path/path.dart' as p;
 
 void main() {
+  group('announcement defaults', () {
+    late Directory directory;
+    late String path;
+
+    setUp(() {
+      directory = Directory.systemTemp
+          .createTempSync('kirakara_announcement_defaults_');
+      path = p.join(directory.path, 'settings.json');
+      addTearDown(() => directory.deleteSync(recursive: true));
+    });
+
+    SettingsService settings() {
+      final service = SettingsService(
+        initialCacheDirectoryPath: directory.path,
+        settingsFilePath: path,
+      );
+      addTearDown(service.dispose);
+      return service;
+    }
+
+    test('new settings enable the ticker and use the welcome announcement',
+        () async {
+      final service = settings();
+      expect(service.audienceOverlay.announcementEnabled, isTrue);
+      expect(service.customAnnouncement, '欢迎使用Kirakara！');
+      await service.load();
+      expect(service.audienceOverlay.announcementEnabled, isTrue);
+      expect(service.customAnnouncement, '欢迎使用Kirakara！');
+      expect(File(path).existsSync(), isFalse);
+      await service.setPrefetchLookahead(2);
+      final saved = jsonDecode(File(path).readAsStringSync());
+      expect(saved['custom_announcement'], '欢迎使用Kirakara！');
+      expect(saved['audience_overlay']['announcement_enabled'], isTrue);
+    });
+
+    test('older settings use defaults for missing announcement fields',
+        () async {
+      File(path).writeAsStringSync(jsonEncode({
+        'audience_overlay': {'qr_enabled': false}
+      }));
+      final service = settings();
+      await service.load();
+      expect(service.audienceOverlay.qrEnabled, isFalse);
+      expect(service.audienceOverlay.announcementEnabled, isTrue);
+      expect(service.customAnnouncement, '欢迎使用Kirakara！');
+    });
+
+    for (final announcement in ['原来的公告', '']) {
+      test('preserves a saved disabled ticker and announcement "$announcement"',
+          () async {
+        File(path).writeAsStringSync(jsonEncode({
+          'custom_announcement': announcement,
+          'audience_overlay': {'announcement_enabled': false},
+        }));
+        final service = settings();
+        await service.load();
+        expect(service.audienceOverlay.announcementEnabled, isFalse);
+        expect(service.customAnnouncement, announcement);
+      });
+    }
+  });
+
   group('cache directory fallback', () {
     late Directory sandbox;
     late String settingsPath;
@@ -121,7 +183,7 @@ void main() {
     const options = AudienceOverlayOptions(
       qrEnabled: false,
       queueEnabled: true,
-      announcementEnabled: true,
+      announcementEnabled: false,
       actionEnabled: false,
     );
     await settings.setAudienceOverlay(options);

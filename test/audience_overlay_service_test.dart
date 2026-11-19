@@ -100,12 +100,12 @@ void main() {
           announcements.add(state);
           return true;
         });
-    expect(announcements, isEmpty);
-    await settings.setAudienceOverlay(
-        settings.audienceOverlay.copyWith(announcementEnabled: true));
     const idleText = '当前播放：等待点歌  ·  下一首：暂无，快去点一首吧';
-    expect(announcements.single.announcementText, idleText);
+    expect(
+        announcements.single.announcementText, '欢迎使用Kirakara！  ·  $idleText');
     expect(announcements.single.announcementVisible, isTrue);
+    await settings.setCustomAnnouncement('');
+    expect(announcements.last.announcementText, idleText);
     await settings.setCustomAnnouncement('自定义公告');
     expect(announcements.last.announcementText, '自定义公告  ·  $idleText');
     await settings.setCustomAnnouncement(' \n');
